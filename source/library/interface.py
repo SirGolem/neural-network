@@ -10,8 +10,8 @@ ARGUMENT_REGULAR_EXPRESSION = r"--([a-zA-Z-]+)(?:=(.+))?"
 # Functions
 
 
-def parse_arguments() -> dict[str, str]:
-    arguments: dict[str, str] = {}
+def parse_arguments() -> dict[str, None | str]:
+    arguments: dict[str, None | str] = {}
 
     for argument in sys.argv[1:]:
         match_result = re.fullmatch(ARGUMENT_REGULAR_EXPRESSION, argument)
