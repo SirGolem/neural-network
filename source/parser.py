@@ -137,9 +137,9 @@ def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> LabelMapp
         mappings: LabelMappings = {}
 
         for line in file.readlines():
-            line = line.strip().split(" ")
-            raw_value = int(line[0])
-            character = chr(int(line[1]))
+            split_line = line.strip().split(" ")
+            raw_value = int(split_line[0])
+            character = chr(int(split_line[1]))
             mappings[raw_value] = character
 
         print("Read label mappings.")
@@ -211,7 +211,7 @@ def main() -> bool:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET.value,
             f"expected one of {', '.join([f"'{value.value}'" for value in Dataset._member_map_.values()])}",
-            arguments[Argument.DATASET.value],
+            str(arguments[Argument.DATASET.value]),
         )
 
     try:
@@ -224,22 +224,26 @@ def main() -> bool:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET_SPLIT.value,
             f"expected one of {', '.join([f"'{value.value}'" for value in DatasetSplit._member_map_.values()])}",
-            arguments[Argument.DATASET_SPLIT.value],
+            str(arguments[Argument.DATASET_SPLIT.value]),
         )
 
     directory: pathlib.Path = (
-        pathlib.Path(arguments[Argument.DIRECTORY.value])
+        pathlib.Path(str(arguments[Argument.DIRECTORY.value]))
         if Argument.DIRECTORY.value in arguments
         else DEFAULTS["directory"]
     ).expanduser()
 
     if not directory.exists():
         raise library.error.InvalidArgumentValueError(
-            Argument.DIRECTORY.value, "path does not exist", arguments[Argument.DIRECTORY.value]
+            Argument.DIRECTORY.value,
+            "path does not exist",
+            str(arguments[Argument.DIRECTORY.value]),
         )
     if not directory.is_dir():
         raise library.error.InvalidArgumentValueError(
-            Argument.DIRECTORY.value, "path is not a directory", arguments[Argument.DIRECTORY.value]
+            Argument.DIRECTORY.value,
+            "path is not a directory",
+            str(arguments[Argument.DIRECTORY.value]),
         )
 
     mappings = parse_label_mappings(dataset, directory)
