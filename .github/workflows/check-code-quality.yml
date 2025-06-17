@@ -1,0 +1,31 @@
+name: Check Code Quality
+on: [push]
+
+jobs:
+    check-formatting:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: false
+            - run: uv tool install ruff --verbose
+            - run: ruff format --check --verbose
+    check-style:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: false
+            - run: uv tool install ruff --verbose
+            - run: ruff check --verbose
+    check-types:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: false
+            - run: uv tool install pyrefly --verbose
+            - run: pyrefly check --verbose
