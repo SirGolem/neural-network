@@ -22,12 +22,12 @@ def try_main(main: typing.Callable[[], bool]) -> None:
     except KeyboardInterrupt:
         print()
         sys.exit(EXIT_CODE_KEYBOARD_INTERRUPT)
-    except library.error.GracefulError as error:
-        library.logging.print_error(str(error) or "No message provided.")
+    except library.error.ApplicationError as error:
+        library.logging.print_error(error)
         sys.exit(EXIT_CODE_FAILURE)
     except Exception as error:
-        library.logging.print_error(
-            f"An unexpected error occurred: {str(error) or 'No message provided.'}"
+        library.logging.print_error_message(
+            f"An unexpected error occurred: {library.logging.error_message(error)}"
         )
         _, _, error_traceback = sys.exc_info()
         traceback.print_tb(error_traceback)
