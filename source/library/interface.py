@@ -17,7 +17,7 @@ class Arguments:
 
         return argument in self.arguments
 
-    def get_option(self: typing.Self, argument: str, default: typing.Optional[str]) -> str:
+    def get_option(self: typing.Self, argument: str, default: None | str = None) -> str:
         if argument not in self.arguments and default is None:
             raise library.error.MissingRequiredArgumentError(argument)
         if argument in self.arguments and self.arguments[argument] is None:
