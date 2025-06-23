@@ -7,6 +7,7 @@ import typing
 
 import library.error
 import library.interface
+import library.logging
 import library.module
 
 # Types
@@ -32,10 +33,10 @@ class DatasetSplit(enum.Enum):
     TRAIN = "train"
 
 
-type Arguments = dict[Argument, str]
 Defaults = typing.TypedDict(
     "Defaults", {"dataset": Dataset, "dataset_split": DatasetSplit, "directory": pathlib.Path}
 )
+
 FileNames = typing.TypedDict(
     "FileNames",
     {
@@ -44,8 +45,10 @@ FileNames = typing.TypedDict(
         "labels": typing.Callable[[Dataset, DatasetSplit], str],
     },
 )
+
 type Label = str
 type LabelMappings = dict[int, Label]
+
 type ListImage = list[list[int]]
 type TupleImage = tuple[tuple[int, ...], ...]
 
@@ -59,15 +62,16 @@ DEFAULTS: Defaults = {
     "directory": pathlib.Path(os.getcwd()),
 }
 
-ESCAPE_CODE_PREFIX: str = "\x1b"
-ESCAPE_CODE_RESET: str = f"{ESCAPE_CODE_PREFIX}[0m"
-
 FILE_NAMES: FileNames = {
-    "images": lambda dataset,
-    dataset_split: f"emnist-{dataset.value}-{dataset_split.value}-images-idx3-ubyte.gz",
+    "images": (
+        lambda dataset,
+        dataset_split: f"emnist-{dataset.value}-{dataset_split.value}-images-idx3-ubyte.gz"
+    ),
     "label_mappings": lambda dataset: f"emnist-{dataset.value}-mapping.txt",
-    "labels": lambda dataset,
-    dataset_split: f"emnist-{dataset.value}-{dataset_split.value}-labels-idx1-ubyte.gz",
+    "labels": (
+        lambda dataset,
+        dataset_split: f"emnist-{dataset.value}-{dataset_split.value}-labels-idx1-ubyte.gz"
+    ),
 }
 
 MAGIC_NUMBERS: dict[str, int] = {"images": 2051, "labels": 2049}
@@ -80,17 +84,15 @@ UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 
 def __check_file_exists(path: pathlib.Path) -> None:
     if not path.exists():
-        raise library.error.GracefulError(f"'{path}' does not exist.")
+        raise library.error.FileSystemResourceNotFoundError(path)
     if not path.is_file():
-        raise library.error.GracefulError(f"'{path}' is not a file.")
+        raise library.error.IncorrectFileSystemResourceTypeError("file", path)
 
 
 def __check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
     file_magic_number: int = struct.unpack(">I", file.read(4))[0]
     if file_magic_number != magic_number:
-        raise library.error.GracefulError(
-            f"Magic number does not match expected value: Expected '{magic_number}', Found '{file_magic_number}'."
-        )
+        raise library.error.MagicNumberValidationError(magic_number, file_magic_number)
 
 
 def parse_images(
@@ -177,16 +179,16 @@ def print_image(image: TupleImage, label: Label, rows: int, columns: int) -> Non
             upper_half = image[2 * row][column]
             lower_half = image[2 * row + 1][column]
             upper_half_modifier = (
-                f"{ESCAPE_CODE_PREFIX}[38;2;{upper_half};{upper_half};{upper_half}m"
+                f"{library.logging.ESCAPE_CODE_PREFIX}[38;2;{upper_half};{upper_half};{upper_half}m"
             )
             lower_half_modifier = (
-                f"{ESCAPE_CODE_PREFIX}[48;2;{lower_half};{lower_half};{lower_half}m"
+                f"{library.logging.ESCAPE_CODE_PREFIX}[48;2;{lower_half};{lower_half};{lower_half}m"
             )
             print(
                 upper_half_modifier
                 + lower_half_modifier
                 + UNICODE_UPPER_HALF_BLOCK
-                + ESCAPE_CODE_RESET,
+                + library.logging.ESCAPE_CODE_RESET,
                 end="",
             )
 
@@ -201,62 +203,52 @@ def print_image(image: TupleImage, label: Label, rows: int, columns: int) -> Non
 def main() -> bool:
     arguments = library.interface.parse_arguments()
 
+    dataset_option = arguments.get_option(Argument.DATASET.value, DEFAULTS["dataset"].value)
+
     try:
-        dataset: Dataset = (
-            Dataset(arguments[Argument.DATASET.value])
-            if Argument.DATASET.value in arguments
-            else DEFAULTS["dataset"]
-        )
+        dataset = Dataset(dataset_option)
     except ValueError:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET.value,
             f"expected one of {', '.join([f"'{value.value}'" for value in Dataset._member_map_.values()])}",
-            str(arguments[Argument.DATASET.value]),
+            dataset_option,
         )
 
+    dataset_split_option = arguments.get_option(
+        Argument.DATASET_SPLIT.value, DEFAULTS["dataset_split"].value
+    )
+
     try:
-        dataset_split: DatasetSplit = (
-            DatasetSplit(arguments[Argument.DATASET_SPLIT.value])
-            if Argument.DATASET_SPLIT.value in arguments
-            else DEFAULTS["dataset_split"]
-        )
+        dataset_split = DatasetSplit(dataset_split_option)
     except ValueError:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET_SPLIT.value,
             f"expected one of {', '.join([f"'{value.value}'" for value in DatasetSplit._member_map_.values()])}",
-            str(arguments[Argument.DATASET_SPLIT.value]),
+            dataset_split_option,
         )
 
-    directory: pathlib.Path = (
-        pathlib.Path(str(arguments[Argument.DIRECTORY.value]))
-        if Argument.DIRECTORY.value in arguments
-        else DEFAULTS["directory"]
-    ).expanduser()
+    directory_option = arguments.get_option(Argument.DIRECTORY.value, str(DEFAULTS["directory"]))
+    directory = (pathlib.Path(directory_option)).expanduser()
 
     if not directory.exists():
         raise library.error.InvalidArgumentValueError(
-            Argument.DIRECTORY.value,
-            "path does not exist",
-            str(arguments[Argument.DIRECTORY.value]),
+            Argument.DIRECTORY.value, "path does not exist", directory_option
         )
+
     if not directory.is_dir():
         raise library.error.InvalidArgumentValueError(
-            Argument.DIRECTORY.value,
-            "path is not a directory",
-            str(arguments[Argument.DIRECTORY.value]),
+            Argument.DIRECTORY.value, "path is not a directory", directory_option
         )
 
+    image_count, image_rows, image_columns, images = parse_images(dataset, dataset_split, directory)
     mappings = parse_label_mappings(dataset, directory)
     label_count, labels = parse_labels(dataset, dataset_split, directory, mappings)
-    image_count, image_rows, image_columns, images = parse_images(dataset, dataset_split, directory)
 
-    if label_count != image_count:
-        raise library.error.GracefulError(
-            f"Label count ({label_count}) does not match image count ({image_count})."
-        )
+    if image_count != label_count:
+        raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
 
-    for i in range(5):
-        print_image(images[i], labels[i], image_rows, image_columns)
+    for image in range(5):
+        print_image(images[image], labels[image], image_rows, image_columns)
 
     return True
 
