@@ -2,6 +2,7 @@ import enum
 import gzip
 import os
 import pathlib
+import re
 import struct
 import typing
 
@@ -17,6 +18,7 @@ class Argument(enum.Enum):
     DATASET = "dataset"
     DATASET_SPLIT = "dataset-split"
     DIRECTORY = "directory"
+    OUTPUT = "output"
 
 
 class Dataset(enum.Enum):
@@ -75,6 +77,8 @@ FILE_NAMES: FileNames = {
 }
 
 MAGIC_NUMBERS: dict[str, int] = {"images": 2051, "labels": 2049}
+
+OUTPUT_RANGE_REGULAR_EXPRESSION = r"^([0-9]+)(?:-([0-9]+))?$"
 
 UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 
@@ -240,6 +244,37 @@ def main() -> bool:
             Argument.DIRECTORY.value, "path is not a directory", directory_option
         )
 
+    output: list[int] = []
+    output_option = arguments.get_option(Argument.OUTPUT.value, "")
+    output_ranges = [
+        output_range.strip()
+        for output_range in output_option.split(",")
+        if len(output_range.strip()) != 0
+    ]
+
+    for output_range in output_ranges:
+        match_result = re.match(OUTPUT_RANGE_REGULAR_EXPRESSION, output_range)
+
+        try:
+            if match_result is None:
+                raise ValueError
+
+            range_start = match_result.group(1)
+            range_stop = (
+                match_result.group(2)
+                if match_result.group(2) is not None
+                else match_result.group(1)
+            )
+
+            for index in range(int(range_start), int(range_stop) + 1):
+                output.append(index)
+        except ValueError:
+            raise library.error.InvalidArgumentValueError(
+                Argument.OUTPUT.value,
+                "expected a comma-separated list of integers or integer ranges (in the form 'a-b', inclusive)",
+                output_option,
+            )
+
     image_count, image_rows, image_columns, images = parse_images(dataset, dataset_split, directory)
     mappings = parse_label_mappings(dataset, directory)
     label_count, labels = parse_labels(dataset, dataset_split, directory, mappings)
@@ -247,8 +282,8 @@ def main() -> bool:
     if image_count != label_count:
         raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
 
-    for image in range(5):
-        print_image(images[image], labels[image], image_rows, image_columns)
+    for index in output:
+        print_image(images[index], labels[index], image_rows, image_columns)
 
     return True
 
