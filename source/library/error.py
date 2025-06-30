@@ -41,9 +41,37 @@ class IncorrectFileSystemResourceTypeError(ApplicationError):
         self.message = f"'{str(path)}' is not a {correct_type}."
 
 
+class IncorrectLayerInputCount(ApplicationError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = (
+            f"Incorrect number of layer inputs: expected '{expected}', received '{received}'."
+        )
+
+
 class InvalidArgumentValueError(ApplicationError):
     def __init__(self: typing.Self, argument: str, reason: str, value: str) -> None:
         self.message = f"Invalid value '{value}' provided for argument '{argument}': {reason}."
+
+
+class InvalidLayerInputCountError(ApplicationError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = (
+            f"Invalid number of layer inputs: expected at least one, received '{received}'."
+        )
+
+
+class InvalidLayerOutputCountError(ApplicationError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = (
+            f"Invalid number of layer outputs: expected at least one, received '{received}'."
+        )
+
+
+class InvalidNetworkLayerCountError(ApplicationError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = (
+            f"Invalid number of network layers: expected at least one, received '{received}'."
+        )
 
 
 class MagicNumberValidationError(ApplicationError):
