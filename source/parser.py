@@ -51,8 +51,8 @@ FileNames = typing.TypedDict(
 type Label = str
 type LabelMappings = dict[int, Label]
 
-type ListImage = list[list[int]]
-type TupleImage = tuple[tuple[int, ...], ...]
+type ListImage = list[list[float]]
+type TupleImage = tuple[tuple[float, ...], ...]
 
 
 # Constants
@@ -77,6 +77,8 @@ FILE_NAMES: FileNames = {
 }
 
 MAGIC_NUMBERS: dict[str, int] = {"images": 2051, "labels": 2049}
+
+MAXIMUM_PIXEL_VALUE: int = 255
 
 OUTPUT_RANGE_REGULAR_EXPRESSION = r"^([0-9]+)(?:-([0-9]+))?$"
 
@@ -116,12 +118,12 @@ def parse_images(
         images_list: list[ListImage] = []
 
         for _ in range(image_count):
-            image = [[0 for _ in range(image_columns)] for _ in range(image_rows)]
+            image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
 
             for column in range(image_columns):
                 for row in range(image_rows):
                     pixel: int = struct.unpack("B", file.read(1))[0]
-                    image[row][column] = pixel
+                    image[row][column] = pixel / MAXIMUM_PIXEL_VALUE
 
             images_list.append(image)
 
