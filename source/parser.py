@@ -80,7 +80,7 @@ MAGIC_NUMBERS: dict[str, int] = {"images": 2051, "labels": 2049}
 
 MAXIMUM_PIXEL_VALUE: int = 255
 
-OUTPUT_RANGE_REGULAR_EXPRESSION = r"^([0-9]+)(?:-([0-9]+))?$"
+OUTPUT_RANGE_REGULAR_EXPRESSION: str = r"^([0-9]+)(?:-([0-9]+))?$"
 
 UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 
