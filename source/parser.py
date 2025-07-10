@@ -273,7 +273,7 @@ def main() -> bool:
         except ValueError:
             raise library.error.InvalidArgumentValueError(
                 Argument.OUTPUT.value,
-                "expected a comma-separated list of integers or integer ranges (in the form 'a-b', inclusive)",
+                "expected a comma-separated list of positive integers or integer ranges (in the form 'a-b', inclusive)",
                 output_option,
             )
 
@@ -285,6 +285,13 @@ def main() -> bool:
         raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
 
     for index in output:
+        if index >= image_count:
+            raise library.error.InvalidArgumentValueError(
+                Argument.OUTPUT.value,
+                "expected all values (after expansion) to be in the range '0 <= x < [image count]'",
+                output_option,
+            )
+
         print_image(images[index], labels[index], image_rows, image_columns)
 
     return True
