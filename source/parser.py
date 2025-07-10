@@ -15,6 +15,7 @@ import library.module
 
 
 class Argument(enum.Enum):
+    COUNT = "count"
     DATASET = "dataset"
     DATASET_SPLIT = "dataset-split"
     DIRECTORY = "directory"
@@ -36,7 +37,13 @@ class DatasetSplit(enum.Enum):
 
 
 Defaults = typing.TypedDict(
-    "Defaults", {"dataset": Dataset, "dataset_split": DatasetSplit, "directory": pathlib.Path}
+    "Defaults",
+    {
+        "count": None | int,
+        "dataset": Dataset,
+        "dataset_split": DatasetSplit,
+        "directory": pathlib.Path,
+    },
 )
 
 FileNames = typing.TypedDict(
@@ -59,6 +66,7 @@ type TupleImage = tuple[tuple[float, ...], ...]
 
 
 DEFAULTS: Defaults = {
+    "count": None,
     "dataset": Dataset.DIGITS,
     "dataset_split": DatasetSplit.TRAIN,
     "directory": pathlib.Path(os.getcwd()),
@@ -102,7 +110,7 @@ def __check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
 
 
 def parse_images(
-    dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path
+    dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, count: None | int = None
 ) -> tuple[int, int, int, tuple[TupleImage, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
     __check_file_exists(path)
@@ -111,6 +119,8 @@ def parse_images(
         __check_magic_number(file, MAGIC_NUMBERS["images"])
 
         image_count: int = struct.unpack(">I", file.read(4))[0]
+        if count is not None:
+            image_count = min(count, image_count)
         image_rows: int = struct.unpack(">I", file.read(4))[0]
         image_columns: int = struct.unpack(">I", file.read(4))[0]
         print(f"Reading {image_count} images ({image_rows}x{image_columns} pixels)...")
@@ -155,7 +165,11 @@ def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> LabelMapp
 
 
 def parse_labels(
-    dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, mappings: LabelMappings
+    dataset: Dataset,
+    dataset_split: DatasetSplit,
+    directory: pathlib.Path,
+    mappings: LabelMappings,
+    count: None | int = None,
 ) -> tuple[int, tuple[Label, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
     __check_file_exists(path)
@@ -164,6 +178,8 @@ def parse_labels(
         __check_magic_number(file, MAGIC_NUMBERS["labels"])
 
         label_count: int = struct.unpack(">I", file.read(4))[0]
+        if count is not None:
+            label_count = min(count, label_count)
         print(f"Reading {label_count} labels...")
 
         labels: list[Label] = []
@@ -208,6 +224,20 @@ def print_image(image: TupleImage, label: Label, rows: int, columns: int) -> Non
 
 def main() -> bool:
     arguments = library.interface.parse_arguments()
+
+    count_option = arguments.get_option(Argument.COUNT.value, str(DEFAULTS["count"]))
+
+    try:
+        if count_option == "None":
+            count = None
+        else:
+            count = int(count_option)
+            if count < 1:
+                raise ValueError
+    except ValueError:
+        raise library.error.InvalidArgumentValueError(
+            Argument.COUNT.value, "expected an integer greater than zero", count_option
+        )
 
     dataset_option = arguments.get_option(Argument.DATASET.value, DEFAULTS["dataset"].value)
 
@@ -273,18 +303,27 @@ def main() -> bool:
         except ValueError:
             raise library.error.InvalidArgumentValueError(
                 Argument.OUTPUT.value,
-                "expected a comma-separated list of integers or integer ranges (in the form 'a-b', inclusive)",
+                "expected a comma-separated list of positive integers or integer ranges (in the form 'a-b', inclusive)",
                 output_option,
             )
 
-    image_count, image_rows, image_columns, images = parse_images(dataset, dataset_split, directory)
+    image_count, image_rows, image_columns, images = parse_images(
+        dataset, dataset_split, directory, count
+    )
     mappings = parse_label_mappings(dataset, directory)
-    label_count, labels = parse_labels(dataset, dataset_split, directory, mappings)
+    label_count, labels = parse_labels(dataset, dataset_split, directory, mappings, count)
 
     if image_count != label_count:
         raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
 
     for index in output:
+        if index >= image_count:
+            raise library.error.InvalidArgumentValueError(
+                Argument.OUTPUT.value,
+                "expected all values (after expansion) to be in the range '0 <= x < [image count]'",
+                output_option,
+            )
+
         print_image(images[index], labels[index], image_rows, image_columns)
 
     return True
