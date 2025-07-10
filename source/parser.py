@@ -182,8 +182,8 @@ def print_image(image: TupleImage, label: Label, rows: int, columns: int) -> Non
 
     for row in range(0, rows // 2):
         for column in range(columns):
-            upper_half = image[2 * row][column]
-            lower_half = image[2 * row + 1][column]
+            upper_half = int(image[2 * row][column] * MAXIMUM_PIXEL_VALUE)
+            lower_half = int(image[2 * row + 1][column] * MAXIMUM_PIXEL_VALUE)
             upper_half_modifier = (
                 f"{library.logging.ESCAPE_CODE_PREFIX}[38;2;{upper_half};{upper_half};{upper_half}m"
             )
