@@ -1,6 +1,8 @@
 import pathlib
 import typing
 
+import library.logging
+
 # Types
 
 
@@ -17,6 +19,11 @@ class ApplicationError(Exception):
 
     def __str__(self: typing.Self) -> str:
         return self.message
+
+
+class CostCalculationError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to calculate network cost: {library.logging.error_message(error)}"
 
 
 class FileSystemResourceNotFoundError(ApplicationError):
