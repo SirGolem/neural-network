@@ -1,8 +1,13 @@
 import enum
+import itertools
+import parser
+import pathlib
 import random
 import typing
 
 import library.activation
+import library.cost
+import library.data
 import library.error
 import library.interface
 import library.module
@@ -12,6 +17,12 @@ import library.module
 
 class Argument(enum.Enum):
     LAYERS = "layers"
+
+
+# Constants
+
+
+NULL_EXPECTED_OUTPUTS: list[int] = [0] * 9
 
 
 # Classes
@@ -31,7 +42,7 @@ class Layer:
             [tuple([random.uniform(-1, 1) for _ in range(outputs)]) for _ in range(inputs)]
         )
 
-    def calculate_outputs(self: typing.Self, inputs: tuple[float]) -> tuple[float]:
+    def calculate_outputs(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         if len(inputs) != self.inputs:
             raise library.error.IncorrectLayerInputCount(self.inputs, len(inputs))
 
@@ -40,8 +51,8 @@ class Layer:
         return outputs
 
     def __activate__(
-        self: typing.Self, function: typing.Callable[[float], float], inputs: tuple[float]
-    ) -> tuple[float]:
+        self: typing.Self, function: typing.Callable[[float], float], inputs: tuple[float, ...]
+    ) -> tuple[float, ...]:
         outputs: list[float] = []
 
         for input in inputs:
@@ -49,7 +60,7 @@ class Layer:
 
         return tuple(outputs)
 
-    def __propagate__(self: typing.Self, inputs: tuple[float]) -> tuple[float]:
+    def __propagate__(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         outputs: list[float] = []
 
         for output in range(self.outputs):
@@ -71,7 +82,7 @@ class InputLayer(Layer):
     def __init__(self: typing.Self, size: int) -> None:
         super().__init__(size, size)
 
-    def calculate_outputs(self: typing.Self, inputs: tuple[float]) -> tuple[float]:
+    def calculate_outputs(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         if len(inputs) != self.inputs:
             raise library.error.IncorrectLayerInputCount(self.inputs, len(inputs))
 
@@ -93,7 +104,28 @@ class Network:
 
         self.layers = tuple(layers)
 
-    def calculate_outputs(self: typing.Self, inputs: tuple[float]) -> tuple[float]:
+    def calculate_cost(
+        self: typing.Self,
+        inputs: tuple[library.data.TupleImage, ...],
+        labels: tuple[library.data.Label, ...],
+    ) -> float:
+        if len(inputs) != len(labels):
+            raise library.error.ImageCountDoesNotMatchLabelCountError(len(inputs), len(labels))
+
+        expected_outputs = tuple(
+            tuple(NULL_EXPECTED_OUTPUTS[: int(label)] + [1] + NULL_EXPECTED_OUTPUTS[int(label) :])
+            for label in labels
+        )
+        outputs = tuple(
+            self.calculate_outputs(tuple(itertools.chain.from_iterable(input))) for input in inputs
+        )
+
+        try:
+            return library.cost.mean_squared(expected_outputs, len(inputs), tuple(outputs))
+        except ValueError as error:
+            raise library.error.CostCalculationError(error)
+
+    def calculate_outputs(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         for layer in self.layers:
             inputs = layer.calculate_outputs(inputs)
 
@@ -128,7 +160,29 @@ def main() -> bool:
     print("Creating network...")
     network = Network(layer_sizes)
     print("Created network.")
-    print(network)
+
+    (_, _, _, images) = parser.parse_images(
+        parser.DEFAULTS["dataset"],
+        parser.DEFAULTS["dataset_split"],
+        pathlib.Path("~/Downloads/emnist").expanduser(),  # parser.DEFAULTS["directory"]
+        100,  # parser.DEFAULTS["count"]
+    )
+    label_mappings = parser.parse_label_mappings(
+        parser.DEFAULTS["dataset"],
+        pathlib.Path("~/Downloads/emnist").expanduser(),  # parser.DEFAULTS["directory"]
+    )
+    (_, labels) = parser.parse_labels(
+        parser.DEFAULTS["dataset"],
+        parser.DEFAULTS["dataset_split"],
+        pathlib.Path("~/Downloads/emnist").expanduser(),  # parser.DEFAULTS["directory"]
+        label_mappings,
+        100,  # parser.DEFAULTS["count"]
+    )
+
+    print("Calculating network cost...")
+    cost = network.calculate_cost(images, labels)
+    print("Calculated network cost.")
+    print(cost)
 
     return True
 
