@@ -48,7 +48,7 @@ class IncorrectFileSystemResourceTypeError(ApplicationError):
         self.message = f"'{str(path)}' is not a {correct_type}."
 
 
-class IncorrectLayerInputCount(ApplicationError):
+class IncorrectLayerInputCountError(ApplicationError):
     def __init__(self: typing.Self, expected: int, received: int) -> None:
         self.message = (
             f"Incorrect number of layer inputs: expected '{expected}', received '{received}'."

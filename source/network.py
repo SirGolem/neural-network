@@ -44,7 +44,7 @@ class Layer:
 
     def calculate_outputs(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         if len(inputs) != self.inputs:
-            raise library.error.IncorrectLayerInputCount(self.inputs, len(inputs))
+            raise library.error.IncorrectLayerInputCountError(self.inputs, len(inputs))
 
         outputs = self.__propagate__(inputs)
         outputs = self.__activate__(library.activation.sigmoid, outputs)
@@ -84,7 +84,7 @@ class InputLayer(Layer):
 
     def calculate_outputs(self: typing.Self, inputs: tuple[float, ...]) -> tuple[float, ...]:
         if len(inputs) != self.inputs:
-            raise library.error.IncorrectLayerInputCount(self.inputs, len(inputs))
+            raise library.error.IncorrectLayerInputCountError(self.inputs, len(inputs))
 
         return inputs
 
