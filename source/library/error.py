@@ -21,6 +21,14 @@ class ApplicationError(Exception):
         return self.message
 
 
+class LibraryError(Exception):
+    def __init__(self: typing.Self, message: str) -> None:
+        self.message = message
+
+    def __str__(self: typing.Self) -> str:
+        return self.message
+
+
 class CostCalculationError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
         self.message = f"Failed to calculate network cost: {library.logging.error_message(error)}"
@@ -34,6 +42,18 @@ class FileSystemResourceNotFoundError(ApplicationError):
 class ImageCountDoesNotMatchLabelCountError(ApplicationError):
     def __init__(self: typing.Self, image_count: int, label_count: int) -> None:
         self.message = f"Image count ({image_count}) does not match label count ({label_count})."
+
+
+class IncompatibleMatrixDimensionsError(LibraryError):
+    def __init__(
+        self: typing.Self, a_columns: int, a_rows: int, b_columns: int, b_rows: int
+    ) -> None:
+        self.message = f"Incompatible matrix dimensions: cannot operate on matrices with dimensions '{a_rows}x{a_columns}' and '{b_rows}x{b_columns}' ([rows]x[columns])."
+
+
+class InconsistentMatrixColumnLengthError(LibraryError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Inconsistent matrix column length: expected all columns to have a length of '{expected}', received a column with a length of '{received}'."
 
 
 class IncorrectArgumentTypeError(ApplicationError):
@@ -72,6 +92,30 @@ class InvalidLayerOutputCountError(ApplicationError):
         self.message = (
             f"Invalid number of layer outputs: expected at least one, received '{received}'."
         )
+
+
+class InvalidMatrixColumnCountError(LibraryError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = (
+            f"Invalid number of matrix columns: expected at least one, received '{received}'."
+        )
+
+
+class InvalidMatrixColumnIndexError(LibraryError):
+    def __init__(self: typing.Self, maximum: int, received: int) -> None:
+        self.message = f"Invalid matrix column index: expected a value between zero and '{maximum}', received '{received}'."
+
+
+class InvalidMatrixRowCountError(LibraryError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = (
+            f"Invalid number of matrix rows: expected at least one, received '{received}'."
+        )
+
+
+class InvalidMatrixRowIndexError(LibraryError):
+    def __init__(self: typing.Self, maximum: int, received: int) -> None:
+        self.message = f"Invalid matrix row index: expected a value between zero and '{maximum}', received '{received}'."
 
 
 class InvalidNetworkLayerCountError(ApplicationError):
