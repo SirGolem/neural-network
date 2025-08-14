@@ -6,11 +6,11 @@ import re
 import struct
 import typing
 
-import library.data
 import library.error
 import library.interface
 import library.logging
 import library.module
+import library.type
 
 # Types
 
@@ -106,7 +106,7 @@ def __check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
 
 def parse_images(
     dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, count: None | int = None
-) -> tuple[int, int, int, tuple[library.data.TupleImage, ...]]:
+) -> tuple[int, int, int, tuple[library.type.TupleImage, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
     __check_file_exists(path)
 
@@ -120,7 +120,7 @@ def parse_images(
         image_columns: int = struct.unpack(">I", file.read(4))[0]
         print(f"Reading {image_count} images ({image_rows}x{image_columns} pixels)...")
 
-        images_list: list[library.data.ListImage] = []
+        images_list: list[library.type.ListImage] = []
 
         for _ in range(image_count):
             image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
@@ -132,7 +132,7 @@ def parse_images(
 
             images_list.append(image)
 
-        images_tuple: tuple[library.data.TupleImage, ...] = tuple(
+        images_tuple: tuple[library.type.TupleImage, ...] = tuple(
             [tuple([tuple(row) for row in image]) for image in images_list]
         )
 
@@ -140,14 +140,14 @@ def parse_images(
         return (image_count, image_rows, image_columns, images_tuple)
 
 
-def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.data.LabelMappings:
+def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.type.LabelMappings:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
     __check_file_exists(path)
 
     with open(path, "rt") as file:
         print("Reading label mappings...")
 
-        mappings: library.data.LabelMappings = {}
+        mappings: library.type.LabelMappings = {}
 
         for line in file.readlines():
             split_line = line.strip().split(" ")
@@ -163,9 +163,9 @@ def parse_labels(
     dataset: Dataset,
     dataset_split: DatasetSplit,
     directory: pathlib.Path,
-    mappings: library.data.LabelMappings,
+    mappings: library.type.LabelMappings,
     count: None | int = None,
-) -> tuple[int, tuple[library.data.Label, ...]]:
+) -> tuple[int, tuple[library.type.Label, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
     __check_file_exists(path)
 
@@ -177,7 +177,7 @@ def parse_labels(
             label_count = min(count, label_count)
         print(f"Reading {label_count} labels...")
 
-        labels: list[library.data.Label] = []
+        labels: list[library.type.Label] = []
 
         for _ in range(label_count):
             raw_label: int = struct.unpack("B", file.read(1))[0]
@@ -188,7 +188,7 @@ def parse_labels(
 
 
 def print_image(
-    image: library.data.TupleImage, label: library.data.Label, rows: int, columns: int
+    image: library.type.TupleImage, label: library.type.Label, rows: int, columns: int
 ) -> None:
     header = f"Label: {label} "
     print(header + "-" * (columns - len(header)))

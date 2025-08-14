@@ -7,10 +7,10 @@ import typing
 
 import library.activation
 import library.cost
-import library.data
 import library.error
 import library.interface
 import library.module
+import library.type
 
 # Types
 
@@ -106,8 +106,8 @@ class Network:
 
     def calculate_cost(
         self: typing.Self,
-        inputs: tuple[library.data.TupleImage, ...],
-        labels: tuple[library.data.Label, ...],
+        inputs: tuple[library.type.TupleImage, ...],
+        labels: tuple[library.type.Label, ...],
     ) -> float:
         if len(inputs) != len(labels):
             raise library.error.ImageCountDoesNotMatchLabelCountError(len(inputs), len(labels))
