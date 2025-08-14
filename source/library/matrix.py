@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typing
 
-import library.data
 import library.error
+import library.type
 
 # Classes
 
@@ -16,7 +16,7 @@ class Matrix:
             raise library.error.InvalidMatrixRowCountError(rows)
 
         self.columns = columns
-        self.data: list[list[library.data.Number]] = [
+        self.data: list[list[library.type.Number]] = [
             [0 for _ in range(rows)] for _ in range(columns)
         ]
         self.rows = rows
@@ -38,7 +38,7 @@ class Matrix:
 
     @classmethod
     def from_tuple(
-        matrix_class: typing.Type[typing.Self], tuple: tuple[tuple[library.data.Number, ...], ...]
+        matrix_class: typing.Type[typing.Self], tuple: tuple[tuple[library.type.Number, ...], ...]
     ) -> typing.Self:
         columns = len(tuple)
         if columns < 1:
@@ -55,7 +55,7 @@ class Matrix:
         matrix.data = [list(column) for column in tuple]
         return matrix
 
-    def get(self: typing.Self, column: int, row: int) -> library.data.Number:
+    def get(self: typing.Self, column: int, row: int) -> library.type.Number:
         if column < 0 or column >= self.columns:
             raise library.error.InvalidMatrixColumnIndexError(self.columns - 1, column)
         if row < 0 or row >= self.rows:
@@ -74,7 +74,7 @@ class Matrix:
 
         for column in range(matrix.columns):
             for row in range(matrix.rows):
-                value: library.data.Number = 0
+                value: library.type.Number = 0
 
                 for index in range(a.columns):
                     value += a.get(index, row) * b.get(column, index)
@@ -84,7 +84,7 @@ class Matrix:
         return matrix
 
     @staticmethod
-    def multiply_by_scalar(a: Matrix, b: library.data.Number) -> Matrix:
+    def multiply_by_scalar(a: Matrix, b: library.type.Number) -> Matrix:
         matrix = Matrix(a.columns, a.rows)
 
         for column in range(matrix.columns):
@@ -93,7 +93,7 @@ class Matrix:
 
         return matrix
 
-    def set(self: typing.Self, column: int, row: int, value: library.data.Number) -> None:
+    def set(self: typing.Self, column: int, row: int, value: library.type.Number) -> None:
         if column < 0 or column >= self.columns:
             raise library.error.InvalidMatrixColumnIndexError(self.columns - 1, column)
         if row < 0 or row >= self.rows:
@@ -183,7 +183,7 @@ class Matrix:
     def __add__(self: typing.Self, other: Matrix) -> Matrix:
         return Matrix.add(self, other)
 
-    def __mul__(self: typing.Self, other: Matrix | library.data.Number) -> Matrix:
+    def __mul__(self: typing.Self, other: Matrix | library.type.Number) -> Matrix:
         if isinstance(other, Matrix):
             return Matrix.multiply_by_matrix(self, other)
         else:
