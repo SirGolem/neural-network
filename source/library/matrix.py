@@ -16,46 +16,75 @@ class Matrix:
             raise library.error.InvalidMatrixRowCountError(rows)
 
         self.columns = columns
-        self.data: list[list[library.type.Number]] = [
-            [0 for _ in range(rows)] for _ in range(columns)
-        ]
+        self.data = [[0.0 for _ in range(rows)] for _ in range(columns)]
         self.rows = rows
 
-    @staticmethod
-    def add(a: Matrix, b: Matrix) -> Matrix:
-        if a.columns != b.columns or a.rows != b.rows:
+    def add(self: typing.Self, other: Matrix) -> Matrix:
+        if other.columns != self.columns or other.rows != self.rows:
             raise library.error.IncompatibleMatrixDimensionsError(
-                a.columns, a.rows, b.columns, b.rows
+                self.columns, self.rows, other.columns, other.rows
             )
 
-        matrix = Matrix(a.columns, a.rows)
+        matrix = Matrix(self.columns, self.rows)
 
-        for column in range(matrix.columns):
-            for row in range(matrix.rows):
-                matrix.set(column, row, a.get(column, row) + b.get(column, row))
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                matrix.set(
+                    column_index,
+                    row_index,
+                    other.get(column_index, row_index) + self.get(column_index, row_index),
+                )
+
+        return matrix
+
+    def apply_function_element_wise(
+        self: typing.Self, function: typing.Callable[[float], float]
+    ) -> Matrix:
+        matrix = Matrix(self.columns, self.rows)
+
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                matrix.set(column_index, row_index, function(self.get(column_index, row_index)))
 
         return matrix
 
     @classmethod
-    def from_tuple(
-        matrix_class: typing.Type[typing.Self], tuple: tuple[tuple[library.type.Number, ...], ...]
-    ) -> typing.Self:
-        columns = len(tuple)
+    def from_lists(matrix_class: typing.Type[typing.Self], lists: list[list[float]]) -> typing.Self:
+        columns = len(lists)
         if columns < 1:
             raise library.error.InvalidMatrixColumnCountError(columns)
-        rows = len(tuple[0])
+        rows = len(lists[0])
         if rows < 1:
             raise library.error.InvalidMatrixRowCountError(rows)
 
-        for column in tuple:
+        for column in lists:
             if len(column) != rows:
                 raise library.error.InconsistentMatrixColumnLengthError(rows, len(column))
 
         matrix = matrix_class(columns, rows)
-        matrix.data = [list(column) for column in tuple]
+        matrix.data = [column.copy() for column in lists]
         return matrix
 
-    def get(self: typing.Self, column: int, row: int) -> library.type.Number:
+    @classmethod
+    def from_tuples(
+        matrix_class: typing.Type[typing.Self], tuples: tuple[tuple[float, ...], ...]
+    ) -> typing.Self:
+        columns = len(tuples)
+        if columns < 1:
+            raise library.error.InvalidMatrixColumnCountError(columns)
+        rows = len(tuples[0])
+        if rows < 1:
+            raise library.error.InvalidMatrixRowCountError(rows)
+
+        for column in tuples:
+            if len(column) != rows:
+                raise library.error.InconsistentMatrixColumnLengthError(rows, len(column))
+
+        matrix = matrix_class(columns, rows)
+        matrix.data = [list(column) for column in tuples]
+        return matrix
+
+    def get(self: typing.Self, column: int, row: int) -> float:
         if column < 0 or column >= self.columns:
             raise library.error.InvalidMatrixColumnIndexError(self.columns - 1, column)
         if row < 0 or row >= self.rows:
@@ -63,37 +92,81 @@ class Matrix:
 
         return self.data[column][row]
 
-    @staticmethod
-    def multiply_by_matrix(a: Matrix, b: Matrix) -> Matrix:
-        if a.columns != b.rows:
+    def get_maximum_value(self: typing.Self) -> tuple[int, int, float]:
+        maximum_column = -1
+        maximum_row = -1
+        maximum_value = 0.0
+
+        for column_index in range(self.columns):
+            for row_index in range(self.rows):
+                value = self.get(column_index, row_index)
+
+                if value > maximum_value:
+                    maximum_column = column_index
+                    maximum_row = row_index
+                    maximum_value = value
+
+        return (maximum_column, maximum_row, maximum_value)
+
+    @classmethod
+    def identity(matrix_class: typing.Type[typing.Self], size: int) -> Matrix:
+        if size < 1:
+            raise library.error.InvalidMatrixColumnCountError(size)
+
+        matrix = matrix_class(size, size)
+
+        for index in range(size):
+            matrix.set(index, index, 1)
+
+        return matrix
+
+    def multiply_by_matrix(self: typing.Self, other: Matrix) -> Matrix:
+        if other.rows != self.columns:
             raise library.error.IncompatibleMatrixDimensionsError(
-                a.columns, a.rows, b.columns, b.rows
+                self.columns, self.rows, other.columns, other.rows
             )
 
-        matrix = Matrix(b.columns, a.rows)
+        matrix = Matrix(other.columns, self.rows)
 
-        for column in range(matrix.columns):
-            for row in range(matrix.rows):
-                value: library.type.Number = 0
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                value = 0.0
 
-                for index in range(a.columns):
-                    value += a.get(index, row) * b.get(column, index)
+                for index in range(self.columns):
+                    value += self.get(index, row_index) * other.get(column_index, index)
 
-                matrix.set(column, row, value)
-
-        return matrix
-
-    @staticmethod
-    def multiply_by_scalar(a: Matrix, b: library.type.Number) -> Matrix:
-        matrix = Matrix(a.columns, a.rows)
-
-        for column in range(matrix.columns):
-            for row in range(matrix.rows):
-                matrix.set(column, row, a.get(column, row) * b)
+                matrix.set(column_index, row_index, value)
 
         return matrix
 
-    def set(self: typing.Self, column: int, row: int, value: library.type.Number) -> None:
+    def multiply_by_scalar(self: typing.Self, other: float) -> Matrix:
+        matrix = Matrix(self.columns, self.rows)
+
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                matrix.set(column_index, row_index, other * self.get(column_index, row_index))
+
+        return matrix
+
+    def multiply_element_wise(self: typing.Self, other: Matrix) -> Matrix:
+        if other.columns != self.columns or other.rows != self.rows:
+            raise library.error.IncompatibleMatrixDimensionsError(
+                self.columns, self.rows, other.columns, other.rows
+            )
+
+        matrix = Matrix(self.columns, self.rows)
+
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                matrix.set(
+                    column_index,
+                    row_index,
+                    other.get(column_index, row_index) * self.get(column_index, row_index),
+                )
+
+        return matrix
+
+    def set(self: typing.Self, column: int, row: int, value: float) -> None:
         if column < 0 or column >= self.columns:
             raise library.error.InvalidMatrixColumnIndexError(self.columns - 1, column)
         if row < 0 or row >= self.rows:
@@ -101,30 +174,41 @@ class Matrix:
 
         self.data[column][row] = value
 
-    @staticmethod
-    def subtract(a: Matrix, b: Matrix) -> Matrix:
-        if a.columns != b.columns or a.rows != b.rows:
+    def subtract(self: typing.Self, other: Matrix) -> Matrix:
+        if other.columns != self.columns or other.rows != self.rows:
             raise library.error.IncompatibleMatrixDimensionsError(
-                a.columns, a.rows, b.columns, b.rows
+                self.columns, self.rows, other.columns, other.rows
             )
 
-        matrix = Matrix(a.columns, a.rows)
+        matrix = Matrix(self.columns, self.rows)
 
-        for column in range(matrix.columns):
-            for row in range(matrix.rows):
-                matrix.set(column, row, a.get(column, row) - b.get(column, row))
+        for column_index in range(matrix.columns):
+            for row_index in range(matrix.rows):
+                matrix.set(
+                    column_index,
+                    row_index,
+                    self.get(column_index, row_index) - other.get(column_index, row_index),
+                )
 
         return matrix
 
-    @staticmethod
-    def to_string(matrix: Matrix) -> str:
+    def sum_of_elements(self: typing.Self) -> float:
+        sum = 0.0
+
+        for column_index in range(self.columns):
+            for row_index in range(self.rows):
+                sum += self.get(column_index, row_index)
+
+        return sum
+
+    def to_string(self: typing.Self) -> str:
         column_lengths: list[int] = []
 
-        for column in range(matrix.columns):
+        for column_index in range(self.columns):
             column_length = 0
 
-            for row in range(matrix.rows):
-                element_length = len(str(matrix.get(column, row)))
+            for row_index in range(self.rows):
+                element_length = len(str(self.get(column_index, row_index)))
 
                 if element_length > column_length:
                     column_length = element_length
@@ -133,64 +217,58 @@ class Matrix:
 
         row_strings: list[str] = []
 
-        for row in range(matrix.rows):
+        for row_index in range(self.rows):
             row_string = (
                 "["
-                if row == 0 and matrix.rows == 1
+                if row_index == 0 and self.rows == 1
                 else "⎡"
-                if row == 0
+                if row_index == 0
                 else "⎣"
-                if row == matrix.rows - 1
+                if row_index == self.rows - 1
                 else "⎢"
             )
 
             elements: list[str] = []
 
-            for column in range(matrix.columns):
-                elements.append(str(matrix.get(column, row)).ljust(column_lengths[column]))
+            for column_index in range(self.columns):
+                elements.append(
+                    str(self.get(column_index, row_index)).ljust(column_lengths[column_index])
+                )
 
             row_string += " ".join(elements)
             row_string += (
                 "]"
-                if row == 0 and matrix.rows == 1
+                if row_index == 0 and self.rows == 1
                 else "⎤"
-                if row == 0
+                if row_index == 0
                 else "⎦"
-                if row == matrix.rows - 1
+                if row_index == self.rows - 1
                 else "⎥"
             )
             row_strings.append(row_string)
 
         return "\n".join(row_strings)
 
-    @staticmethod
-    def transpose(matrix: Matrix) -> Matrix:
-        transposed = Matrix(matrix.rows, matrix.columns)
+    def transpose(self: typing.Self) -> Matrix:
+        transposed = Matrix(self.rows, self.columns)
 
-        for column in range(matrix.columns):
-            for row in range(matrix.rows):
-                transposed.set(row, column, matrix.get(column, row))
+        for column_index in range(self.columns):
+            for row_index in range(self.rows):
+                transposed.set(row_index, column_index, self.get(column_index, row_index))
 
         return transposed
 
-    def transposed(self: typing.Self) -> Matrix:
-        return Matrix.transpose(self)
-
-    @classmethod
-    def vector(matrix_class: typing.Type[typing.Self], rows: int) -> typing.Self:
-        return matrix_class(1, rows)
-
     def __add__(self: typing.Self, other: Matrix) -> Matrix:
-        return Matrix.add(self, other)
+        return self.add(other)
 
-    def __mul__(self: typing.Self, other: Matrix | library.type.Number) -> Matrix:
+    def __mul__(self: typing.Self, other: Matrix | float) -> Matrix:
         if isinstance(other, Matrix):
-            return Matrix.multiply_by_matrix(self, other)
+            return self.multiply_by_matrix(other)
         else:
-            return Matrix.multiply_by_scalar(self, other)
+            return self.multiply_by_scalar(other)
 
     def __str__(self: typing.Self) -> str:
-        return Matrix.to_string(self)
+        return self.to_string()
 
     def __sub__(self: typing.Self, other: Matrix) -> Matrix:
-        return Matrix.subtract(self, other)
+        return self.subtract(other)
