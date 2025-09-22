@@ -1,5 +1,6 @@
 import enum
 import gzip
+import itertools
 import os
 import pathlib
 import re
@@ -9,6 +10,7 @@ import typing
 import library.error
 import library.interface
 import library.logging
+import library.matrix
 import library.module
 import library.type
 
@@ -91,61 +93,98 @@ UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 # Functions
 
 
-def __check_file_exists(path: pathlib.Path) -> None:
+def _check_file_exists(path: pathlib.Path) -> None:
     if not path.exists():
         raise library.error.FileSystemResourceNotFoundError(path)
     if not path.is_file():
         raise library.error.IncorrectFileSystemResourceTypeError("file", path)
 
 
-def __check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
+def _check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
     file_magic_number: int = struct.unpack(">I", file.read(4))[0]
     if file_magic_number != magic_number:
         raise library.error.MagicNumberValidationError(magic_number, file_magic_number)
+
+
+def convert_image_to_matrix(image: library.type.TupleImage) -> library.matrix.Matrix:
+    return library.matrix.Matrix.from_tuples(tuple([flatten_image(image)]))
+
+
+def convert_images_to_matrices(
+    images: tuple[library.type.TupleImage, ...],
+) -> tuple[library.matrix.Matrix, ...]:
+    return tuple(convert_image_to_matrix(image) for image in images)
+
+
+def convert_label_to_matrix(label: library.type.Label) -> library.matrix.Matrix:
+    matrix = library.matrix.Matrix(1, 10)
+    matrix.set(0, int(label), 1)
+    return matrix
+
+
+def convert_labels_to_matrices(
+    labels: tuple[library.type.Label, ...],
+) -> tuple[library.matrix.Matrix, ...]:
+    return tuple(convert_label_to_matrix(label) for label in labels)
+
+
+def flatten_image(image: library.type.TupleImage) -> tuple[float, ...]:
+    return tuple(itertools.chain.from_iterable(image))
+
+
+def flatten_images(images: tuple[library.type.TupleImage, ...]) -> tuple[tuple[float, ...], ...]:
+    return tuple(tuple(itertools.chain.from_iterable(image)) for image in images)
 
 
 def parse_images(
     dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, count: None | int = None
 ) -> tuple[int, int, int, tuple[library.type.TupleImage, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
-    __check_file_exists(path)
+    _check_file_exists(path)
 
     with gzip.open(path, "rb") as file:
-        __check_magic_number(file, MAGIC_NUMBERS["images"])
+        _check_magic_number(file, MAGIC_NUMBERS["images"])
 
         image_count: int = struct.unpack(">I", file.read(4))[0]
         if count is not None:
             image_count = min(count, image_count)
         image_rows: int = struct.unpack(">I", file.read(4))[0]
         image_columns: int = struct.unpack(">I", file.read(4))[0]
-        print(f"Reading {image_count} images ({image_rows}x{image_columns} pixels)...")
+        progress = library.interface.Progress(
+            f"Reading {image_count} images ({image_rows}x{image_columns} pixels): ",
+            " (Starting...)",
+        )
+        progress.print(0)
 
         images_list: list[library.type.ListImage] = []
 
-        for _ in range(image_count):
+        for image_index in range(image_count):
+            progress.suffix = f" (Image {image_index + 1}/{image_count})"
+            progress.print(image_index / image_count)
+
             image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
 
-            for column in range(image_columns):
-                for row in range(image_rows):
+            for column_index in range(image_columns):
+                for row_index in range(image_rows):
                     pixel: int = struct.unpack("B", file.read(1))[0]
-                    image[row][column] = pixel / MAXIMUM_PIXEL_VALUE
+                    image[column_index][row_index] = pixel / MAXIMUM_PIXEL_VALUE
 
             images_list.append(image)
 
         images_tuple: tuple[library.type.TupleImage, ...] = tuple(
-            [tuple([tuple(row) for row in image]) for image in images_list]
+            [tuple([tuple(column) for column in image]) for image in images_list]
         )
 
-        print("Read images.")
+        progress.complete(f"Read {image_count} images.")
         return (image_count, image_rows, image_columns, images_tuple)
 
 
 def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.type.LabelMappings:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
-    __check_file_exists(path)
+    _check_file_exists(path)
 
     with open(path, "rt") as file:
-        print("Reading label mappings...")
+        print("Reading label mappings...", end="")
 
         mappings: library.type.LabelMappings = {}
 
@@ -155,6 +194,7 @@ def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.t
             character = chr(int(split_line[1]))
             mappings[raw_value] = character
 
+        library.interface.clear_line()
         print("Read label mappings.")
         return mappings
 
@@ -167,23 +207,27 @@ def parse_labels(
     count: None | int = None,
 ) -> tuple[int, tuple[library.type.Label, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
-    __check_file_exists(path)
+    _check_file_exists(path)
 
     with gzip.open(path, "rb") as file:
-        __check_magic_number(file, MAGIC_NUMBERS["labels"])
+        _check_magic_number(file, MAGIC_NUMBERS["labels"])
 
         label_count: int = struct.unpack(">I", file.read(4))[0]
         if count is not None:
             label_count = min(count, label_count)
-        print(f"Reading {label_count} labels...")
+        progress = library.interface.Progress(f"Reading {label_count} labels: ", " (Starting...)")
+        progress.print(0)
 
         labels: list[library.type.Label] = []
 
-        for _ in range(label_count):
+        for label_index in range(label_count):
+            progress.suffix = f" (Label {label_index + 1}/{label_count})"
+            progress.print(label_index / label_count)
+
             raw_label: int = struct.unpack("B", file.read(1))[0]
             labels.append(mappings[raw_label])
 
-        print("Read labels.")
+        progress.complete(f"Read {label_count} labels.")
         return (label_count, tuple(labels))
 
 
@@ -193,10 +237,10 @@ def print_image(
     header = f"Label: {label} "
     print(header + "-" * (columns - len(header)))
 
-    for row in range(0, rows // 2):
-        for column in range(columns):
-            upper_half = int(image[2 * row][column] * MAXIMUM_PIXEL_VALUE)
-            lower_half = int(image[2 * row + 1][column] * MAXIMUM_PIXEL_VALUE)
+    for row_index in range(0, rows // 2):
+        for column_index in range(columns):
+            upper_half = int(image[column_index][2 * row_index] * MAXIMUM_PIXEL_VALUE)
+            lower_half = int(image[column_index][2 * row_index + 1] * MAXIMUM_PIXEL_VALUE)
             upper_half_modifier = (
                 f"{library.logging.ESCAPE_CODE_PREFIX}[38;2;{upper_half};{upper_half};{upper_half}m"
             )
@@ -225,7 +269,7 @@ def main() -> bool:
     count_option = arguments.get_option(Argument.COUNT.value, str(DEFAULTS["count"]))
 
     try:
-        if count_option == "None":
+        if count_option == str(None):
             count = None
         else:
             count = int(count_option)
@@ -295,8 +339,8 @@ def main() -> bool:
                 else match_result.group(1)
             )
 
-            for index in range(int(range_start), int(range_stop) + 1):
-                output.append(index)
+            for image_index in range(int(range_start), int(range_stop) + 1):
+                output.append(image_index)
         except ValueError:
             raise library.error.InvalidArgumentValueError(
                 Argument.OUTPUT.value,
@@ -313,15 +357,15 @@ def main() -> bool:
     if image_count != label_count:
         raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
 
-    for index in output:
-        if index >= image_count:
+    for image_index in output:
+        if image_index >= image_count:
             raise library.error.InvalidArgumentValueError(
                 Argument.OUTPUT.value,
                 "expected all values (after expansion) to be in the range '0 <= x < [image count]'",
                 output_option,
             )
 
-        print_image(images[index], labels[index], image_rows, image_columns)
+        print_image(images[image_index], labels[image_index], image_rows, image_columns)
 
     return True
 

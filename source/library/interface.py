@@ -1,8 +1,16 @@
+import os
 import re
 import sys
 import typing
 
 import library.error
+
+# Constants
+
+
+ARGUMENT_REGULAR_EXPRESSION = r"--([a-zA-Z-]+)(?:=(.+))?"
+PROGRESS_BAR_CHARACTER: str = chr(9608)
+
 
 # Classes
 
@@ -26,13 +34,34 @@ class Arguments:
         return str(default) if argument not in self.arguments else str(self.arguments[argument])
 
 
-# Constants
+class Progress:
+    def __init__(self: typing.Self, prefix: None | str = None, suffix: None | str = None) -> None:
+        self.prefix = prefix
+        self.suffix = suffix
 
+    def complete(self: typing.Self, string: None | str = None) -> None:
+        if string is None:
+            self.print(1)
+            print()
+        else:
+            clear_line()
+            print(string)
 
-ARGUMENT_REGULAR_EXPRESSION = r"--([a-zA-Z-]+)(?:=(.+))?"
+    def print(self: typing.Self, progress: float) -> None:
+        if progress < 0 or progress > 1:
+            raise library.error.InvalidProgressValueError(progress)
+
+        terminal_width = os.get_terminal_size().columns
+        progress_bar_width = terminal_width - len(self.prefix or ()) - len(self.suffix or ()) - 2
+        progress_bar = f"[{(PROGRESS_BAR_CHARACTER * round(progress * progress_bar_width)).ljust(progress_bar_width)}]"
+        print(f"\r{self.prefix or ''}{progress_bar}{self.suffix or ''}", end="", flush=True)
 
 
 # Functions
+
+
+def clear_line() -> None:
+    print(f"\r{' ' * os.get_terminal_size().columns}\r", end="", flush=True)
 
 
 def parse_arguments() -> Arguments:
