@@ -47,8 +47,8 @@ class InvalidArgumentValueError(ApplicationError):
 
 
 class MagicNumberValidationError(ApplicationError):
-    def __init__(self: typing.Self, expected: int, found: int) -> None:
-        self.message = f"Magic number does not match expected value: expected '{str(expected)}', found '{str(found)}'."
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Magic number does not match expected value: expected '{str(expected)}', received '{str(received)}'."
 
 
 class MissingRequiredArgumentError(ApplicationError):
