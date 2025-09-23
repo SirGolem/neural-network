@@ -8,6 +8,7 @@ import struct
 import typing
 
 import library.error
+import library.file_system
 import library.interface
 import library.logging
 import library.matrix
@@ -93,13 +94,6 @@ UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 # Functions
 
 
-def _check_file_exists(path: pathlib.Path) -> None:
-    if not path.exists():
-        raise library.error.FileSystemResourceNotFoundError(path)
-    if not path.is_file():
-        raise library.error.IncorrectFileSystemResourceTypeError("file", path)
-
-
 def _check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
     file_magic_number: int = struct.unpack(">I", file.read(4))[0]
     if file_magic_number != magic_number:
@@ -140,7 +134,7 @@ def parse_images(
     dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, count: None | int = None
 ) -> tuple[int, int, int, tuple[library.type.TupleImage, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
-    _check_file_exists(path)
+    library.file_system.check_file_exists(path)
 
     with gzip.open(path, "rb") as file:
         _check_magic_number(file, MAGIC_NUMBERS["images"])
@@ -181,7 +175,7 @@ def parse_images(
 
 def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.type.LabelMappings:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
-    _check_file_exists(path)
+    library.file_system.check_file_exists(path)
 
     with open(path, "rt") as file:
         print("Reading label mappings...", end="")
@@ -207,7 +201,7 @@ def parse_labels(
     count: None | int = None,
 ) -> tuple[int, tuple[library.type.Label, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
-    _check_file_exists(path)
+    library.file_system.check_file_exists(path)
 
     with gzip.open(path, "rb") as file:
         _check_magic_number(file, MAGIC_NUMBERS["labels"])

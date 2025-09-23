@@ -105,6 +105,76 @@ class IncorrectPropagationInputRowCountError(ApplicationError):
         self.message = f"Incorrect number of rows in propagation function input: expected '{expected}, received '{received}."
 
 
+class IncorrectSerializedBiasDataColumnCountError(ApplicationError):
+    def __init__(self: typing.Self, received: int) -> None:
+        self.message = f"Incorrect number of serialized bias data columns: expected one, received '{received}'."
+
+
+class IncorrectSerializedBiasDataColumnTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized bias data column is incorrect: expected a list."
+
+
+class IncorrectSerializedBiasDataRowCountError(ApplicationError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Incorrect number of serialized bias data rows: expected '{expected}', received '{received}'."
+
+
+class IncorrectSerializedBiasDataTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized bias data is incorrect: expected a list."
+
+
+class IncorrectSerializedBiasDataValueTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized bias data value is incorrect: expected a floating-point value or an integer."
+
+
+class IncorrectSerializedLayerDataTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized layer data is incorrect: expected a dictionary."
+
+
+class IncorrectSerializedNetworkDataTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized network data is incorrect: expected a list."
+
+
+class IncorrectSerializedNetworkLayerCountError(ApplicationError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Incorrect number of serialized network layers: expected '{expected}', received '{received}'."
+
+
+class IncorrectSerializedWeightDataColumnCountError(ApplicationError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Incorrect number of serialized weight data columns: expected '{expected}', received '{received}'."
+
+
+class IncorrectSerializedWeightDataColumnTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized weight data column is incorrect: expected a list."
+
+
+class IncorrectSerializedWeightDataRowCountError(ApplicationError):
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Incorrect number of serialized weight data rows: expected '{expected}', received '{received}'."
+
+
+class IncorrectSerializedWeightDataTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized weight data is incorrect: expected a list."
+
+
+class IncorrectSerializedWeightDataValueTypeError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = "Type of serialized weight data value is incorrect: expected a floating-point value or an integer."
+
+
+class InputModelFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to read input model file: {str(error) or 'No message provided.'}."
+
+
 class InvalidArgumentValueError(ApplicationError):
     def __init__(self: typing.Self, argument: str, reason: str, value: str) -> None:
         self.message = f"Invalid value '{value}' provided for argument '{argument}': {reason}."
@@ -192,6 +262,21 @@ class MissingRequiredArgumentError(ApplicationError):
         self.message = f"Missing required argument '{argument}'."
 
 
+class MissingSerializedLayerDataPropertyError(ApplicationError):
+    def __init__(self: typing.Self, property: str) -> None:
+        self.message = f"Missing serialized layer data property '{property}'."
+
+
+class ModelDataParseError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to parse model data: {str(error) or 'No message provided.'}."
+
+
 class MultipleExpectedResultSelectedElementsError(ApplicationError):
     def __init__(self: typing.Self) -> None:
         self.message = "Multiple selected elements found in expected result: only one element (the desired output neuron) should be one, all others should be zero."
+
+
+class OutputModelFileWriteError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to write output model file: {str(error) or 'No message provided.'}."

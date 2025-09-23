@@ -1,4 +1,5 @@
 import enum
+import json
 import multiprocessing
 import os
 import parser
@@ -8,6 +9,7 @@ import typing
 
 import library.activation
 import library.error
+import library.file_system
 import library.interface
 import library.matrix
 import library.module
@@ -21,8 +23,10 @@ class Argument(enum.Enum):
     DATASET = "dataset"
     DIRECTORY = "directory"
     EPOCH_COUNT = "epoch-count"
+    INPUT_MODEL_FILE = "input-model-file"
     LAYER_SIZES = "layer-sizes"
     LEARNING_RATE = "learning-rate"
+    OUTPUT_MODEL_FILE = "output-model-file"
     SAMPLE_COUNT = "sample-count"
     TEST_SAMPLE_COUNT = "test-sample-count"
 
@@ -34,12 +38,16 @@ Defaults = typing.TypedDict(
         "dataset": parser.Dataset,
         "directory": pathlib.Path,
         "epoch_count": int,
+        "input_model_file": None | pathlib.Path,
         "layer_sizes": tuple[int, ...],
         "learning_rate": float,
+        "output_model_file": None | pathlib.Path,
         "sample_count": None | int,
         "test_sample_count": None | int,
     },
 )
+
+ModelDataKeyNames = typing.TypedDict("ModelDataKeyNames", {"biases": str, "weights": str})
 
 
 # Constants
@@ -50,11 +58,15 @@ DEFAULTS: Defaults = {
     "dataset": parser.Dataset.DIGITS,
     "directory": pathlib.Path(os.getcwd()),
     "epoch_count": 10,
+    "input_model_file": None,
     "layer_sizes": (784, 25, 10),
     "learning_rate": 3,
+    "output_model_file": None,
     "sample_count": None,
     "test_sample_count": None,
 }
+
+MODEL_DATA_KEY_NAMES: ModelDataKeyNames = {"biases": "biases", "weights": "weights"}
 
 
 # Classes
@@ -137,6 +149,72 @@ class Network:
 
         return outputs
 
+    def deserialize(self: typing.Self, data: str) -> None:
+        try:
+            network = json.loads(data)
+        except Exception as error:
+            raise library.error.ModelDataParseError(error)
+
+        if not isinstance(network, list):
+            raise library.error.IncorrectSerializedNetworkDataTypeError
+        if len(network) != len(self.layers):
+            raise library.error.IncorrectSerializedNetworkLayerCountError(
+                len(self.layers), len(network)
+            )
+
+        for layer_index in range(len(network)):
+            layer = network[layer_index]
+            if not isinstance(layer, dict):
+                raise library.error.IncorrectSerializedLayerDataTypeError
+
+            if MODEL_DATA_KEY_NAMES["biases"] not in layer:
+                raise library.error.MissingSerializedLayerDataPropertyError(
+                    MODEL_DATA_KEY_NAMES["biases"]
+                )
+            if not isinstance(layer[MODEL_DATA_KEY_NAMES["biases"]], list):
+                raise library.error.IncorrectSerializedBiasDataTypeError
+            if len(layer[MODEL_DATA_KEY_NAMES["biases"]]) != 1:
+                raise library.error.IncorrectSerializedBiasDataColumnCountError(
+                    len(layer[MODEL_DATA_KEY_NAMES["biases"]])
+                )
+            if not isinstance(layer[MODEL_DATA_KEY_NAMES["biases"]][0], list):
+                raise library.error.IncorrectSerializedBiasDataColumnTypeError
+            if len(layer[MODEL_DATA_KEY_NAMES["biases"]][0]) != self.layers[layer_index].outputs:
+                raise library.error.IncorrectSerializedBiasDataRowCountError(
+                    self.layers[layer_index].outputs, len(layer[MODEL_DATA_KEY_NAMES["biases"]][0])
+                )
+            for value in layer[MODEL_DATA_KEY_NAMES["biases"]][0]:
+                if not isinstance(value, float) and not isinstance(value, int):
+                    raise library.error.IncorrectSerializedBiasDataValueTypeError
+
+            if MODEL_DATA_KEY_NAMES["weights"] not in layer:
+                raise library.error.MissingSerializedLayerDataPropertyError(
+                    MODEL_DATA_KEY_NAMES["weights"]
+                )
+            if not isinstance(layer[MODEL_DATA_KEY_NAMES["weights"]], list):
+                raise library.error.IncorrectSerializedWeightDataTypeError
+            if len(layer[MODEL_DATA_KEY_NAMES["weights"]]) != self.layers[layer_index].inputs:
+                raise library.error.IncorrectSerializedWeightDataColumnCountError(
+                    self.layers[layer_index].inputs, len(layer[MODEL_DATA_KEY_NAMES["weights"]])
+                )
+            for column in layer[MODEL_DATA_KEY_NAMES["weights"]]:
+                if not isinstance(column, list):
+                    raise library.error.IncorrectSerializedWeightDataColumnTypeError
+                if len(column) != self.layers[layer_index].outputs:
+                    raise library.error.IncorrectSerializedWeightDataRowCountError(
+                        self.layers[layer_index].outputs, len(column)
+                    )
+                for value in column:
+                    if not isinstance(value, float) and not isinstance(value, int):
+                        raise library.error.IncorrectSerializedWeightDataValueTypeError
+
+            self.layers[layer_index].biases = library.matrix.Matrix.from_lists(
+                layer[MODEL_DATA_KEY_NAMES["biases"]]
+            )
+            self.layers[layer_index].weights = library.matrix.Matrix.from_lists(
+                layer[MODEL_DATA_KEY_NAMES["weights"]]
+            )
+
     def evaluate(
         self: typing.Self,
         expected_results: tuple[library.matrix.Matrix, ...],
@@ -153,6 +231,11 @@ class Network:
         correct = sum(pool.starmap(self.__evaluate_sample__, zip(expected_results, samples)))
 
         return (correct / len(samples), correct)
+
+    def serialize(self: typing.Self) -> str:
+        return json.dumps(
+            [{"biases": layer.biases.data, "weights": layer.weights.data} for layer in self.layers]
+        )
 
     def train(
         self: typing.Self,
@@ -380,7 +463,7 @@ def main() -> bool:
         )
 
     directory_option = arguments.get_option(Argument.DIRECTORY.value, str(DEFAULTS["directory"]))
-    directory = (pathlib.Path(directory_option)).expanduser()
+    directory = pathlib.Path(directory_option).expanduser()
 
     if not directory.exists():
         raise library.error.InvalidArgumentValueError(
@@ -404,6 +487,23 @@ def main() -> bool:
         raise library.error.InvalidArgumentValueError(
             Argument.EPOCH_COUNT.value, "expected an integer greater than zero", epoch_count_option
         )
+
+    input_model_file_option = arguments.get_option(
+        Argument.INPUT_MODEL_FILE.value, str(DEFAULTS["input_model_file"])
+    )
+
+    if input_model_file_option == str(None):
+        input_model_file = None
+    else:
+        input_model_file = pathlib.Path(input_model_file_option).expanduser()
+        if not input_model_file.exists():
+            raise library.error.InvalidArgumentValueError(
+                Argument.INPUT_MODEL_FILE.value, "path does not exist", input_model_file_option
+            )
+        if not input_model_file.is_file():
+            raise library.error.InvalidArgumentValueError(
+                Argument.INPUT_MODEL_FILE.value, "path is not a file", input_model_file_option
+            )
 
     layer_sizes_option = arguments.get_option(
         Argument.LAYER_SIZES.value,
@@ -440,6 +540,15 @@ def main() -> bool:
             "expected a floating-point value greater than zero",
             learning_rate_option,
         )
+
+    output_model_file_option = arguments.get_option(
+        Argument.OUTPUT_MODEL_FILE.value, str(DEFAULTS["output_model_file"])
+    )
+
+    if output_model_file_option == str(None):
+        output_model_file = None
+    else:
+        output_model_file = pathlib.Path(output_model_file_option).expanduser()
 
     sample_count_option = arguments.get_option(
         Argument.SAMPLE_COUNT.value, str(DEFAULTS["sample_count"])
@@ -482,6 +591,24 @@ def main() -> bool:
     library.interface.clear_line()
     print("Created network.")
 
+    if input_model_file is not None:
+        library.file_system.check_file_exists(input_model_file)
+        print(f"Reading model data from '{input_model_file}'...", end="", flush=True)
+
+        try:
+            with open(input_model_file, "rt") as file:
+                input_model_data = file.read()
+        except Exception as error:
+            raise library.error.InputModelFileReadError(error)
+
+        library.interface.clear_line()
+        print(f"Read model data from '{input_model_file}'.")
+
+        print("Deserializing model data...", end="", flush=True)
+        network.deserialize(input_model_data)
+        library.interface.clear_line()
+        print("Deserialized model data.")
+
     (_, _, _, images) = parser.parse_images(
         dataset, parser.DatasetSplit.TRAIN, directory, sample_count
     )
@@ -522,6 +649,29 @@ def main() -> bool:
         test_samples,
     )
     print("Trained network.")
+
+    if output_model_file is not None:
+        if not output_model_file.parent.exists():
+            print(f"Creating directory '{output_model_file.parent}'...", end="", flush=True)
+            output_model_file.parent.mkdir(exist_ok=True, parents=True)
+            library.interface.clear_line()
+            print(f"Created directory '{output_model_file.parent}'.")
+
+        print("Serializing model data...", end="", flush=True)
+        output_model_data = network.serialize()
+        library.interface.clear_line()
+        print("Serialized model data.")
+
+        print(f"Writing model data to '{output_model_file}'...", end="", flush=True)
+
+        try:
+            with open(output_model_file, "wt") as file:
+                file.write(output_model_data)
+        except Exception as error:
+            raise library.error.OutputModelFileWriteError(error)
+
+        library.interface.clear_line()
+        print(f"Wrote model data to '{output_model_file}'.")
 
     return True
 
