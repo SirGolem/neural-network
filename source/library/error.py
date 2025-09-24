@@ -172,7 +172,7 @@ class IncorrectSerializedWeightDataValueTypeError(ApplicationError):
 
 class InputModelFileReadError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to read input model file: {str(error) or 'No message provided.'}."
+        self.message = f"Failed to read input model file: {str(error) or 'No message provided.'}"
 
 
 class InvalidArgumentValueError(ApplicationError):
@@ -269,7 +269,7 @@ class MissingSerializedLayerDataPropertyError(ApplicationError):
 
 class ModelDataParseError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to parse model data: {str(error) or 'No message provided.'}."
+        self.message = f"Failed to parse model data: {str(error) or 'No message provided.'}"
 
 
 class MultipleExpectedResultSelectedElementsError(ApplicationError):
@@ -279,4 +279,4 @@ class MultipleExpectedResultSelectedElementsError(ApplicationError):
 
 class OutputModelFileWriteError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to write output model file: {str(error) or 'No message provided.'}."
+        self.message = f"Failed to write output model file: {str(error) or 'No message provided.'}"
