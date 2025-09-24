@@ -115,53 +115,61 @@ def parse_images(
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
     __check_file_exists(path)
 
-    with gzip.open(path, "rb") as file:
-        __check_magic_number(file, MAGIC_NUMBERS["images"])
+    try:
+        with gzip.open(path, "rb") as file:
+            __check_magic_number(file, MAGIC_NUMBERS["images"])
 
-        image_count: int = struct.unpack(">I", file.read(4))[0]
-        if count is not None:
-            image_count = min(count, image_count)
-        image_rows: int = struct.unpack(">I", file.read(4))[0]
-        image_columns: int = struct.unpack(">I", file.read(4))[0]
-        print(f"Reading {image_count} images ({image_rows}x{image_columns} pixels)...")
+            image_count: int = struct.unpack(">I", file.read(4))[0]
+            if count is not None:
+                image_count = min(count, image_count)
+            image_rows: int = struct.unpack(">I", file.read(4))[0]
+            image_columns: int = struct.unpack(">I", file.read(4))[0]
+            print(f"Reading {image_count} images ({image_rows}x{image_columns} pixels)...")
 
-        images_list: list[ListImage] = []
+            images_list: list[ListImage] = []
 
-        for _ in range(image_count):
-            image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
+            for _ in range(image_count):
+                image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
 
-            for column in range(image_columns):
-                for row in range(image_rows):
-                    pixel: int = struct.unpack("B", file.read(1))[0]
-                    image[row][column] = pixel / MAXIMUM_PIXEL_VALUE
+                for column in range(image_columns):
+                    for row in range(image_rows):
+                        pixel: int = struct.unpack("B", file.read(1))[0]
+                        image[row][column] = pixel / MAXIMUM_PIXEL_VALUE
 
-            images_list.append(image)
+                images_list.append(image)
 
-        images_tuple: tuple[TupleImage, ...] = tuple(
-            [tuple([tuple(row) for row in image]) for image in images_list]
-        )
+            images_tuple: tuple[TupleImage, ...] = tuple(
+                [tuple([tuple(row) for row in image]) for image in images_list]
+            )
 
-        print("Read images.")
-        return (image_count, image_rows, image_columns, images_tuple)
+            print("Read images.")
+            return (image_count, image_rows, image_columns, images_tuple)
+    except library.error.ApplicationError as error:
+        raise error
+    except Exception as error:
+        raise library.error.ImagesFileReadError(error)
 
 
 def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> LabelMappings:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
     __check_file_exists(path)
 
-    with open(path, "rt") as file:
-        print("Reading label mappings...")
+    try:
+        with open(path, "rt") as file:
+            print("Reading label mappings...")
 
-        mappings: LabelMappings = {}
+            mappings: LabelMappings = {}
 
-        for line in file.readlines():
-            split_line = line.strip().split(" ")
-            raw_value = int(split_line[0])
-            character = chr(int(split_line[1]))
-            mappings[raw_value] = character
+            for line in file.readlines():
+                split_line = line.strip().split(" ")
+                raw_value = int(split_line[0])
+                character = chr(int(split_line[1]))
+                mappings[raw_value] = character
 
-        print("Read label mappings.")
-        return mappings
+            print("Read label mappings.")
+            return mappings
+    except Exception as error:
+        raise library.error.LabelMappingsFileReadError(error)
 
 
 def parse_labels(
@@ -174,22 +182,27 @@ def parse_labels(
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
     __check_file_exists(path)
 
-    with gzip.open(path, "rb") as file:
-        __check_magic_number(file, MAGIC_NUMBERS["labels"])
+    try:
+        with gzip.open(path, "rb") as file:
+            __check_magic_number(file, MAGIC_NUMBERS["labels"])
 
-        label_count: int = struct.unpack(">I", file.read(4))[0]
-        if count is not None:
-            label_count = min(count, label_count)
-        print(f"Reading {label_count} labels...")
+            label_count: int = struct.unpack(">I", file.read(4))[0]
+            if count is not None:
+                label_count = min(count, label_count)
+            print(f"Reading {label_count} labels...")
 
-        labels: list[Label] = []
+            labels: list[Label] = []
 
-        for _ in range(label_count):
-            raw_label: int = struct.unpack("B", file.read(1))[0]
-            labels.append(mappings[raw_label])
+            for _ in range(label_count):
+                raw_label: int = struct.unpack("B", file.read(1))[0]
+                labels.append(mappings[raw_label])
 
-        print("Read labels.")
-        return (label_count, tuple(labels))
+            print("Read labels.")
+            return (label_count, tuple(labels))
+    except library.error.ApplicationError as error:
+        raise error
+    except Exception as error:
+        raise library.error.LabelsFileReadError(error)
 
 
 def print_image(image: TupleImage, label: Label, rows: int, columns: int) -> None:

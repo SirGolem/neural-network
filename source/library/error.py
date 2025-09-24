@@ -29,6 +29,11 @@ class ImageCountDoesNotMatchLabelCountError(ApplicationError):
         self.message = f"Image count ({image_count}) does not match label count ({label_count})."
 
 
+class ImagesFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to read images file: '{str(error) or 'No message provided.'}'"
+
+
 class IncorrectArgumentTypeError(ApplicationError):
     def __init__(self: typing.Self, argument: str, correct_type: ArgumentType) -> None:
         self.message = f"Type of argument '{argument}' is incorrect: expected {'a flag' if correct_type == 'flag' else 'an option'}, received {'an option' if correct_type == 'flag' else 'a flag'}."
@@ -44,6 +49,18 @@ class IncorrectFileSystemResourceTypeError(ApplicationError):
 class InvalidArgumentValueError(ApplicationError):
     def __init__(self: typing.Self, argument: str, reason: str, value: str) -> None:
         self.message = f"Invalid value '{value}' provided for argument '{argument}': {reason}."
+
+
+class LabelMappingsFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = (
+            f"Failed to read label mappings file: '{str(error) or 'No message provided.'}'"
+        )
+
+
+class LabelsFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to read labels file: '{str(error) or 'No message provided.'}'"
 
 
 class MagicNumberValidationError(ApplicationError):
