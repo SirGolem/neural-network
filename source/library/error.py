@@ -42,6 +42,11 @@ class ImageCountDoesNotMatchLabelCountError(ApplicationError):
         self.message = f"Image count ({image_count}) does not match label count ({label_count})."
 
 
+class ImagesFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to read images file: '{str(error) or 'No message provided.'}'"
+
+
 class IncompatibleMatrixDimensionsError(LibraryError):
     def __init__(
         self: typing.Self, a_columns: int, a_rows: int, b_columns: int, b_rows: int
@@ -252,9 +257,21 @@ class InvalidProgressValueError(LibraryError):
         self.message = f"Invalid progress value provided: expected a value between zero and one, received '{received}'."
 
 
+class LabelMappingsFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = (
+            f"Failed to read label mappings file: '{str(error) or 'No message provided.'}'"
+        )
+
+
+class LabelsFileReadError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to read labels file: '{str(error) or 'No message provided.'}'"
+
+
 class MagicNumberValidationError(ApplicationError):
-    def __init__(self: typing.Self, expected: int, found: int) -> None:
-        self.message = f"Magic number does not match expected value: expected '{str(expected)}', found '{str(found)}'."
+    def __init__(self: typing.Self, expected: int, received: int) -> None:
+        self.message = f"Magic number does not match expected value: expected '{str(expected)}', received '{str(received)}'."
 
 
 class MissingRequiredArgumentError(ApplicationError):

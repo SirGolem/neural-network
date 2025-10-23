@@ -136,61 +136,69 @@ def parse_images(
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
     library.file_system.check_file_exists(path)
 
-    with gzip.open(path, "rb") as file:
-        _check_magic_number(file, MAGIC_NUMBERS["images"])
+    try:
+        with gzip.open(path, "rb") as file:
+            _check_magic_number(file, MAGIC_NUMBERS["images"])
 
-        image_count: int = struct.unpack(">I", file.read(4))[0]
-        if count is not None:
-            image_count = min(count, image_count)
-        image_rows: int = struct.unpack(">I", file.read(4))[0]
-        image_columns: int = struct.unpack(">I", file.read(4))[0]
-        progress = library.interface.Progress(
-            f"Reading {image_count} images ({image_rows}x{image_columns} pixels): ",
-            " (Starting...)",
-        )
-        progress.print(0)
+            image_count: int = struct.unpack(">I", file.read(4))[0]
+            if count is not None:
+                image_count = min(count, image_count)
+            image_rows: int = struct.unpack(">I", file.read(4))[0]
+            image_columns: int = struct.unpack(">I", file.read(4))[0]
+            progress = library.interface.Progress(
+                f"Reading {image_count} images ({image_rows}x{image_columns} pixels): ",
+                " (Starting...)",
+            )
+            progress.print(0)
 
-        images_list: list[library.type.ListImage] = []
+            images_list: list[library.type.ListImage] = []
 
-        for image_index in range(image_count):
-            progress.suffix = f" (Image {image_index + 1}/{image_count})"
-            progress.print(image_index / image_count)
+            for image_index in range(image_count):
+                progress.suffix = f" (Image {image_index + 1}/{image_count})"
+                progress.print(image_index / image_count)
 
-            image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
+                image = [[0.0 for _ in range(image_columns)] for _ in range(image_rows)]
 
-            for column_index in range(image_columns):
-                for row_index in range(image_rows):
-                    pixel: int = struct.unpack("B", file.read(1))[0]
-                    image[column_index][row_index] = pixel / MAXIMUM_PIXEL_VALUE
+                for column_index in range(image_columns):
+                    for row_index in range(image_rows):
+                        pixel: int = struct.unpack("B", file.read(1))[0]
+                        image[column_index][row_index] = pixel / MAXIMUM_PIXEL_VALUE
 
-            images_list.append(image)
+                images_list.append(image)
 
-        images_tuple: tuple[library.type.TupleImage, ...] = tuple(
-            [tuple([tuple(column) for column in image]) for image in images_list]
-        )
+            images_tuple: tuple[library.type.TupleImage, ...] = tuple(
+                [tuple([tuple(column) for column in image]) for image in images_list]
+            )
 
-        progress.complete(f"Read {image_count} images.")
-        return (image_count, image_rows, image_columns, images_tuple)
+            progress.complete(f"Read {image_count} images.")
+            return (image_count, image_rows, image_columns, images_tuple)
+    except library.error.ApplicationError as error:
+        raise error
+    except Exception as error:
+        raise library.error.ImagesFileReadError(error)
 
 
 def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.type.LabelMappings:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
     library.file_system.check_file_exists(path)
 
-    with open(path, "rt") as file:
-        print("Reading label mappings...", end="")
+    try:
+        with open(path, "rt") as file:
+            print("Reading label mappings...", end="")
 
-        mappings: library.type.LabelMappings = {}
+            mappings: library.type.LabelMappings = {}
 
-        for line in file.readlines():
-            split_line = line.strip().split(" ")
-            raw_value = int(split_line[0])
-            character = chr(int(split_line[1]))
-            mappings[raw_value] = character
+            for line in file.readlines():
+                split_line = line.strip().split(" ")
+                raw_value = int(split_line[0])
+                character = chr(int(split_line[1]))
+                mappings[raw_value] = character
 
-        library.interface.clear_line()
-        print("Read label mappings.")
-        return mappings
+            library.interface.clear_line()
+            print("Read label mappings.")
+            return mappings
+    except Exception as error:
+        raise library.error.LabelMappingsFileReadError(error)
 
 
 def parse_labels(
@@ -203,26 +211,32 @@ def parse_labels(
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
     library.file_system.check_file_exists(path)
 
-    with gzip.open(path, "rb") as file:
-        _check_magic_number(file, MAGIC_NUMBERS["labels"])
+    try:
+        with gzip.open(path, "rb") as file:
+            _check_magic_number(file, MAGIC_NUMBERS["labels"])
 
-        label_count: int = struct.unpack(">I", file.read(4))[0]
-        if count is not None:
-            label_count = min(count, label_count)
-        progress = library.interface.Progress(f"Reading {label_count} labels: ", " (Starting...)")
-        progress.print(0)
+            label_count: int = struct.unpack(">I", file.read(4))[0]
+            if count is not None:
+                label_count = min(count, label_count)
+            progress = library.interface.Progress(
+                f"Reading {label_count} labels: ", " (Starting...)"
+            )
+            progress.print(0)
 
-        labels: list[library.type.Label] = []
+            labels: list[library.type.Label] = []
 
-        for label_index in range(label_count):
-            progress.suffix = f" (Label {label_index + 1}/{label_count})"
-            progress.print(label_index / label_count)
+            for label_index in range(label_count):
+                progress.suffix = f" (Label {label_index + 1}/{label_count})"
+                progress.print(label_index / label_count)
+                raw_label: int = struct.unpack("B", file.read(1))[0]
+                labels.append(mappings[raw_label])
 
-            raw_label: int = struct.unpack("B", file.read(1))[0]
-            labels.append(mappings[raw_label])
-
-        progress.complete(f"Read {label_count} labels.")
-        return (label_count, tuple(labels))
+            progress.complete(f"Read {label_count} labels.")
+            return (label_count, tuple(labels))
+    except library.error.ApplicationError as error:
+        raise error
+    except Exception as error:
+        raise library.error.LabelsFileReadError(error)
 
 
 def print_image(
