@@ -27,6 +27,25 @@ class LibraryError(Exception):
         return self.message
 
 
+class CorrectedLabelMappingsFileWriteError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to write corrected label mappings file: '{str(error) or 'No message provided.'}'"
+
+
+class CorrectedLabelWouldBeInvalidError(ApplicationError):
+    def __init__(self: typing.Self) -> None:
+        self.message = (
+            "Encountered a label which would be invalid when corrected: labels cannot be negative."
+        )
+
+
+class CorrectedLabelsFileWriteError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = (
+            f"Failed to write corrected labels file: '{str(error) or 'No message provided.'}'"
+        )
+
+
 class ExpectedResultCountDoesNotMatchSampleCountError(ApplicationError):
     def __init__(self: typing.Self, expected_result_count: int, sample_count: int) -> None:
         self.message = f"Expected result count ({expected_result_count}) does not match sample count ({sample_count})."
@@ -257,11 +276,23 @@ class InvalidProgressValueError(LibraryError):
         self.message = f"Invalid progress value provided: expected a value between zero and one, received '{received}'."
 
 
+class LabelMappingsFileCorrectionError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = (
+            f"Failed to correct label mappings file: '{str(error) or 'No message provided.'}'"
+        )
+
+
 class LabelMappingsFileReadError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
         self.message = (
             f"Failed to read label mappings file: '{str(error) or 'No message provided.'}'"
         )
+
+
+class LabelsFileCorrectionError(ApplicationError):
+    def __init__(self: typing.Self, error: Exception) -> None:
+        self.message = f"Failed to correct labels file: '{str(error) or 'No message provided.'}'"
 
 
 class LabelsFileReadError(ApplicationError):

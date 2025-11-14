@@ -2,7 +2,6 @@ import enum
 import json
 import multiprocessing
 import os
-import parser
 import pathlib
 import random
 import typing
@@ -14,6 +13,7 @@ import library.interface
 import library.matrix
 import library.module
 import library.type
+import parser
 
 # Types
 
@@ -35,7 +35,7 @@ Defaults = typing.TypedDict(
     "Defaults",
     {
         "batch_size": int,
-        "dataset": parser.Dataset,
+        "dataset": library.type.Dataset,
         "directory": pathlib.Path,
         "epoch_count": int,
         "input_model_file": None | pathlib.Path,
@@ -55,7 +55,7 @@ ModelDataKeyNames = typing.TypedDict("ModelDataKeyNames", {"biases": str, "weigh
 
 DEFAULTS: Defaults = {
     "batch_size": 10,
-    "dataset": parser.Dataset.DIGITS,
+    "dataset": library.type.Dataset.DIGITS,
     "directory": pathlib.Path(os.getcwd()),
     "epoch_count": 10,
     "input_model_file": None,
@@ -454,11 +454,11 @@ def main() -> bool:
     dataset_option = arguments.get_option(Argument.DATASET.value, DEFAULTS["dataset"].value)
 
     try:
-        dataset = parser.Dataset(dataset_option)
+        dataset = library.type.Dataset(dataset_option)
     except ValueError:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET.value,
-            f"expected one of {', '.join([f"'{value.value}'" for value in parser.Dataset._member_map_.values()])}",
+            f"expected one of {', '.join([f"'{value.value}'" for value in library.type.Dataset._member_map_.values()])}",
             dataset_option,
         )
 
@@ -610,22 +610,22 @@ def main() -> bool:
         print("Deserialized model data.")
 
     (_, _, _, images) = parser.parse_images(
-        dataset, parser.DatasetSplit.TRAIN, directory, sample_count
+        dataset, library.type.DatasetSplit.TRAIN, directory, sample_count
     )
     (_, _, _, test_images) = parser.parse_images(
-        dataset, parser.DatasetSplit.TEST, directory, test_sample_count
+        dataset, library.type.DatasetSplit.TEST, directory, test_sample_count
     )
-    label_mappings = parser.parse_label_mappings(dataset, directory)
+    label_class_count, _ = parser.parse_label_mappings(dataset, directory)
     (_, labels) = parser.parse_labels(
-        dataset, parser.DatasetSplit.TRAIN, directory, label_mappings, sample_count
+        dataset, library.type.DatasetSplit.TRAIN, directory, sample_count
     )
     (_, test_labels) = parser.parse_labels(
-        dataset, parser.DatasetSplit.TEST, directory, label_mappings, test_sample_count
+        dataset, library.type.DatasetSplit.TEST, directory, test_sample_count
     )
 
-    expected_results = parser.convert_labels_to_matrices(labels)
+    expected_results = parser.convert_labels_to_matrices(labels, label_class_count)
     samples = parser.convert_images_to_matrices(images)
-    test_expected_results = parser.convert_labels_to_matrices(test_labels)
+    test_expected_results = parser.convert_labels_to_matrices(test_labels, label_class_count)
     test_samples = parser.convert_images_to_matrices(test_images)
 
     print("Evaluating network...", end="", flush=True)

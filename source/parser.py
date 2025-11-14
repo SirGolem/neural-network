@@ -26,26 +26,12 @@ class Argument(enum.Enum):
     OUTPUT = "output"
 
 
-class Dataset(enum.Enum):
-    BALANCED = "balanced"
-    BY_CLASS = "byclass"
-    BY_MERGE = "bymerge"
-    DIGITS = "digits"
-    LETTERS = "letters"
-    MNIST = "mnist"
-
-
-class DatasetSplit(enum.Enum):
-    TEST = "test"
-    TRAIN = "train"
-
-
 Defaults = typing.TypedDict(
     "Defaults",
     {
         "count": None | int,
-        "dataset": Dataset,
-        "dataset_split": DatasetSplit,
+        "dataset": library.type.Dataset,
+        "dataset_split": library.type.DatasetSplit,
         "directory": pathlib.Path,
     },
 )
@@ -53,9 +39,9 @@ Defaults = typing.TypedDict(
 FileNames = typing.TypedDict(
     "FileNames",
     {
-        "images": typing.Callable[[Dataset, DatasetSplit], str],
-        "label_mappings": typing.Callable[[Dataset], str],
-        "labels": typing.Callable[[Dataset, DatasetSplit], str],
+        "images": typing.Callable[[library.type.Dataset, library.type.DatasetSplit], str],
+        "label_mappings": typing.Callable[[library.type.Dataset], str],
+        "labels": typing.Callable[[library.type.Dataset, library.type.DatasetSplit], str],
     },
 )
 
@@ -65,8 +51,8 @@ FileNames = typing.TypedDict(
 
 DEFAULTS: Defaults = {
     "count": None,
-    "dataset": Dataset.DIGITS,
-    "dataset_split": DatasetSplit.TRAIN,
+    "dataset": library.type.Dataset.DIGITS,
+    "dataset_split": library.type.DatasetSplit.TRAIN,
     "directory": pathlib.Path(os.getcwd()),
 }
 
@@ -83,18 +69,15 @@ FILE_NAMES: FileNames = {
 }
 
 MAGIC_NUMBERS: dict[str, int] = {"images": 2051, "labels": 2049}
-
 MAXIMUM_PIXEL_VALUE: int = 255
-
 OUTPUT_RANGE_REGULAR_EXPRESSION: str = r"^([0-9]+)(?:-([0-9]+))?$"
-
 UNICODE_UPPER_HALF_BLOCK: str = chr(9600)
 
 
 # Functions
 
 
-def _check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
+def check_magic_number(file: gzip.GzipFile, magic_number: int) -> None:
     file_magic_number: int = struct.unpack(">I", file.read(4))[0]
     if file_magic_number != magic_number:
         raise library.error.MagicNumberValidationError(magic_number, file_magic_number)
@@ -110,16 +93,18 @@ def convert_images_to_matrices(
     return tuple(convert_image_to_matrix(image) for image in images)
 
 
-def convert_label_to_matrix(label: library.type.Label) -> library.matrix.Matrix:
-    matrix = library.matrix.Matrix(1, 10)
-    matrix.set(0, int(label), 1)
+def convert_label_to_matrix(
+    label: library.type.Label, label_class_count: int
+) -> library.matrix.Matrix:
+    matrix = library.matrix.Matrix(1, label_class_count)
+    matrix.set(0, label, 1)
     return matrix
 
 
 def convert_labels_to_matrices(
-    labels: tuple[library.type.Label, ...],
+    labels: tuple[library.type.Label, ...], label_class_count: int
 ) -> tuple[library.matrix.Matrix, ...]:
-    return tuple(convert_label_to_matrix(label) for label in labels)
+    return tuple(convert_label_to_matrix(label, label_class_count) for label in labels)
 
 
 def flatten_image(image: library.type.TupleImage) -> tuple[float, ...]:
@@ -131,14 +116,17 @@ def flatten_images(images: tuple[library.type.TupleImage, ...]) -> tuple[tuple[f
 
 
 def parse_images(
-    dataset: Dataset, dataset_split: DatasetSplit, directory: pathlib.Path, count: None | int = None
+    dataset: library.type.Dataset,
+    dataset_split: library.type.DatasetSplit,
+    directory: pathlib.Path,
+    count: None | int = None,
 ) -> tuple[int, int, int, tuple[library.type.TupleImage, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["images"](dataset, dataset_split))
     library.file_system.check_file_exists(path)
 
     try:
         with gzip.open(path, "rb") as file:
-            _check_magic_number(file, MAGIC_NUMBERS["images"])
+            check_magic_number(file, MAGIC_NUMBERS["images"])
 
             image_count: int = struct.unpack(">I", file.read(4))[0]
             if count is not None:
@@ -178,7 +166,9 @@ def parse_images(
         raise library.error.ImagesFileReadError(error)
 
 
-def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.type.LabelMappings:
+def parse_label_mappings(
+    dataset: library.type.Dataset, directory: pathlib.Path
+) -> tuple[int, library.type.LabelMappings]:
     path = pathlib.Path(directory, FILE_NAMES["label_mappings"](dataset))
     library.file_system.check_file_exists(path)
 
@@ -190,22 +180,21 @@ def parse_label_mappings(dataset: Dataset, directory: pathlib.Path) -> library.t
 
             for line in file.readlines():
                 split_line = line.strip().split(" ")
-                raw_value = int(split_line[0])
-                character = chr(int(split_line[1]))
-                mappings[raw_value] = character
+                label = int(split_line[0])
+                label_character = chr(int(split_line[1]))
+                mappings[label] = label_character
 
             library.interface.clear_line()
             print("Read label mappings.")
-            return mappings
+            return (len(mappings), mappings)
     except Exception as error:
         raise library.error.LabelMappingsFileReadError(error)
 
 
 def parse_labels(
-    dataset: Dataset,
-    dataset_split: DatasetSplit,
+    dataset: library.type.Dataset,
+    dataset_split: library.type.DatasetSplit,
     directory: pathlib.Path,
-    mappings: library.type.LabelMappings,
     count: None | int = None,
 ) -> tuple[int, tuple[library.type.Label, ...]]:
     path = pathlib.Path(directory, FILE_NAMES["labels"](dataset, dataset_split))
@@ -213,7 +202,7 @@ def parse_labels(
 
     try:
         with gzip.open(path, "rb") as file:
-            _check_magic_number(file, MAGIC_NUMBERS["labels"])
+            check_magic_number(file, MAGIC_NUMBERS["labels"])
 
             label_count: int = struct.unpack(">I", file.read(4))[0]
             if count is not None:
@@ -228,8 +217,8 @@ def parse_labels(
             for label_index in range(label_count):
                 progress.suffix = f" (Label {label_index + 1}/{label_count})"
                 progress.print(label_index / label_count)
-                raw_label: int = struct.unpack("B", file.read(1))[0]
-                labels.append(mappings[raw_label])
+                label: int = struct.unpack("B", file.read(1))[0]
+                labels.append(label)
 
             progress.complete(f"Read {label_count} labels.")
             return (label_count, tuple(labels))
@@ -240,9 +229,12 @@ def parse_labels(
 
 
 def print_image(
-    image: library.type.TupleImage, label: library.type.Label, rows: int, columns: int
+    image: library.type.TupleImage,
+    label_character: library.type.LabelCharacter,
+    rows: int,
+    columns: int,
 ) -> None:
-    header = f"Label: {label} "
+    header = f"Label: {label_character} "
     print(header + "-" * (columns - len(header)))
 
     for row_index in range(0, rows // 2):
@@ -291,11 +283,11 @@ def main() -> bool:
     dataset_option = arguments.get_option(Argument.DATASET.value, DEFAULTS["dataset"].value)
 
     try:
-        dataset = Dataset(dataset_option)
+        dataset = library.type.Dataset(dataset_option)
     except ValueError:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET.value,
-            f"expected one of {', '.join([f"'{value.value}'" for value in Dataset._member_map_.values()])}",
+            f"expected one of {', '.join([f"'{value.value}'" for value in library.type.Dataset._member_map_.values()])}",
             dataset_option,
         )
 
@@ -304,11 +296,11 @@ def main() -> bool:
     )
 
     try:
-        dataset_split = DatasetSplit(dataset_split_option)
+        dataset_split = library.type.DatasetSplit(dataset_split_option)
     except ValueError:
         raise library.error.InvalidArgumentValueError(
             Argument.DATASET_SPLIT.value,
-            f"expected one of {', '.join([f"'{value.value}'" for value in DatasetSplit._member_map_.values()])}",
+            f"expected one of {', '.join([f"'{value.value}'" for value in library.type.DatasetSplit._member_map_.values()])}",
             dataset_split_option,
         )
 
@@ -359,8 +351,8 @@ def main() -> bool:
     image_count, image_rows, image_columns, images = parse_images(
         dataset, dataset_split, directory, count
     )
-    mappings = parse_label_mappings(dataset, directory)
-    label_count, labels = parse_labels(dataset, dataset_split, directory, mappings, count)
+    _, label_mappings = parse_label_mappings(dataset, directory)
+    label_count, labels = parse_labels(dataset, dataset_split, directory, count)
 
     if image_count != label_count:
         raise library.error.ImageCountDoesNotMatchLabelCountError(image_count, label_count)
@@ -373,7 +365,9 @@ def main() -> bool:
                 output_option,
             )
 
-        print_image(images[image_index], labels[image_index], image_rows, image_columns)
+        print_image(
+            images[image_index], label_mappings[labels[image_index]], image_rows, image_columns
+        )
 
     return True
 
