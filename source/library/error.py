@@ -46,6 +46,11 @@ class CorrectedLabelsFileWriteError(ApplicationError):
         )
 
 
+class DuplicateActivationFunctionPairIdentifierError(LibraryError):
+    def __init__(self: typing.Self, identifier: str) -> None:
+        self.message = f"Multiple activation function pairs found with identifier '{identifier}'."
+
+
 class ExpectedResultCountDoesNotMatchSampleCountError(ApplicationError):
     def __init__(self: typing.Self, expected_result_count: int, sample_count: int) -> None:
         self.message = f"Expected result count ({expected_result_count}) does not match sample count ({sample_count})."

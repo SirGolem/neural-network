@@ -19,6 +19,7 @@ import parser
 
 
 class Argument(enum.Enum):
+    ACTIVATION_FUNCTION_IDENTIFIER = "activation-function-identifier"
     BATCH_SIZE = "batch-size"
     DATASET = "dataset"
     DIRECTORY = "directory"
@@ -34,6 +35,7 @@ class Argument(enum.Enum):
 Defaults = typing.TypedDict(
     "Defaults",
     {
+        "activation_function_identifier": library.type.ActivationFunctionIdentifier,
         "batch_size": int,
         "dataset": library.type.Dataset,
         "directory": pathlib.Path,
@@ -54,6 +56,7 @@ ModelDataKeyNames = typing.TypedDict("ModelDataKeyNames", {"biases": str, "weigh
 
 
 DEFAULTS: Defaults = {
+    "activation_function_identifier": library.type.ActivationFunctionIdentifier.SIGMOID,
     "batch_size": 10,
     "dataset": library.type.Dataset.DIGITS,
     "directory": pathlib.Path(os.getcwd()),
@@ -89,16 +92,20 @@ class Layer:
         )
 
     def activate(
-        self: typing.Self, function: typing.Callable[[float], float], inputs: library.matrix.Matrix
+        self: typing.Self,
+        activation_function: library.type.ActivationFunction,
+        inputs: library.matrix.Matrix,
     ) -> library.matrix.Matrix:
         _check_activation_inputs(inputs, self.outputs)
-        return inputs.apply_function_element_wise(function)
+        return inputs.apply_function_element_wise(activation_function)
 
     def calculate_outputs(
-        self: typing.Self, inputs: library.matrix.Matrix
+        self: typing.Self,
+        activation_function: library.type.ActivationFunction,
+        inputs: library.matrix.Matrix,
     ) -> library.matrix.Matrix:
         outputs = self.propagate(inputs)
-        outputs = self.activate(library.activation.sigmoid, outputs)
+        outputs = self.activate(activation_function, outputs)
         return outputs
 
     def propagate(self: typing.Self, inputs: library.matrix.Matrix) -> library.matrix.Matrix:
@@ -114,7 +121,9 @@ class InputLayer(Layer):
         super().__init__(neurons, neurons)
 
     def activate(
-        self: typing.Self, function: typing.Callable[[float], float], inputs: library.matrix.Matrix
+        self: typing.Self,
+        activation_function: library.type.ActivationFunction,
+        inputs: library.matrix.Matrix,
     ) -> library.matrix.Matrix:
         _check_activation_inputs(inputs, self.outputs)
         return inputs
@@ -128,7 +137,13 @@ class InputLayer(Layer):
 
 
 class Network:
-    def __init__(self: typing.Self, layer_sizes: list[int] | tuple[int]) -> None:
+    def __init__(
+        self: typing.Self,
+        activation_function_pair: library.type.ActivationFunctionPair,
+        layer_sizes: list[int] | tuple[int],
+    ) -> None:
+        self.activation_function_pair = activation_function_pair
+
         if len(layer_sizes) < 1:
             raise library.error.InvalidNetworkLayerCountError(len(layer_sizes))
 
@@ -145,7 +160,7 @@ class Network:
         outputs = inputs
 
         for layer in self.layers:
-            outputs = layer.calculate_outputs(outputs)
+            outputs = layer.calculate_outputs(self.activation_function_pair["function"], outputs)
 
         return outputs
 
@@ -307,12 +322,14 @@ class Network:
 
         for layer in self.layers[1:]:
             weighted_inputs.append(layer.propagate(activations[-1]))
-            activations.append(layer.activate(library.activation.sigmoid, weighted_inputs[-1]))
+            activations.append(
+                layer.activate(self.activation_function_pair["function"], weighted_inputs[-1])
+            )
 
         errors = [
             (activations[-1] - expected_outputs).multiply_element_wise(
                 weighted_inputs[-1].apply_function_element_wise(
-                    library.activation.sigmoid_derivative
+                    self.activation_function_pair["derivative"]
                 )
             )
         ]
@@ -324,7 +341,7 @@ class Network:
                     self.layers[layer_index + 1].weights.transpose() * errors[0]
                 ).multiply_element_wise(
                     weighted_inputs[layer_index - 1].apply_function_element_wise(
-                        library.activation.sigmoid_derivative
+                        self.activation_function_pair["derivative"]
                     )
                 ),
             )
@@ -439,6 +456,26 @@ def _check_propagation_inputs(inputs: library.matrix.Matrix, layer_inputs: int) 
 
 def main() -> bool:
     arguments = library.interface.parse_arguments()
+
+    activation_function_identifier_option = arguments.get_option(
+        Argument.ACTIVATION_FUNCTION_IDENTIFIER.value,
+        str(DEFAULTS["activation_function_identifier"].value),
+    )
+
+    try:
+        activation_function_identifier = library.type.ActivationFunctionIdentifier(
+            activation_function_identifier_option
+        )
+    except ValueError:
+        raise library.error.InvalidArgumentValueError(
+            Argument.ACTIVATION_FUNCTION_IDENTIFIER.value,
+            f"expected one of {', '.join([f"'{value.value}'" for value in library.type.ActivationFunctionIdentifier._member_map_.values()])}",
+            activation_function_identifier_option,
+        )
+
+    activation_function_pair = library.activation.get_activation_function_pair(
+        activation_function_identifier
+    )
 
     batch_size_option = arguments.get_option(Argument.BATCH_SIZE.value, str(DEFAULTS["batch_size"]))
 
@@ -586,10 +623,16 @@ def main() -> bool:
             test_sample_count_option,
         )
 
-    print("Creating network...", end="", flush=True)
-    network = Network(layer_sizes)
+    print(
+        f"Creating network (activation function identifier: {activation_function_identifier.value}, layer sizes: {layer_sizes})...",
+        end="",
+        flush=True,
+    )
+    network = Network(activation_function_pair, layer_sizes)
     library.interface.clear_line()
-    print("Created network.")
+    print(
+        f"Created network (activation function identifier: {activation_function_identifier.value}, layer sizes: {layer_sizes})."
+    )
 
     if input_model_file is not None:
         library.file_system.check_file_exists(input_model_file)
