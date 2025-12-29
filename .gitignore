@@ -4,5 +4,8 @@
 # Python
 __pycache__/
 
+# Qualification
+qualification-details.md
+
 # Ruff
 .ruff_cache/
