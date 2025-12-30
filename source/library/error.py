@@ -29,7 +29,9 @@ class LibraryError(Exception):
 
 class CorrectedLabelMappingsFileWriteError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to write corrected label mappings file: '{str(error) or 'No message provided.'}'"
+        self.message = (
+            f"Failed to write corrected label mappings file: {str(error) or 'No message provided.'}"
+        )
 
 
 class CorrectedLabelWouldBeInvalidError(ApplicationError):
@@ -42,7 +44,7 @@ class CorrectedLabelWouldBeInvalidError(ApplicationError):
 class CorrectedLabelsFileWriteError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
         self.message = (
-            f"Failed to write corrected labels file: '{str(error) or 'No message provided.'}'"
+            f"Failed to write corrected labels file: {str(error) or 'No message provided.'}"
         )
 
 
@@ -68,7 +70,7 @@ class ImageCountDoesNotMatchLabelCountError(ApplicationError):
 
 class ImagesFileReadError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to read images file: '{str(error) or 'No message provided.'}'"
+        self.message = f"Failed to read images file: {str(error) or 'No message provided.'}"
 
 
 class IncompatibleMatrixDimensionsError(LibraryError):
@@ -85,12 +87,12 @@ class InconsistentMatrixColumnLengthError(LibraryError):
 
 class IncorrectActivationInputColumnCountError(ApplicationError):
     def __init__(self: typing.Self, received: int) -> None:
-        self.message = f"Incorrect number of columns in activation function input: expected one, received '{received}."
+        self.message = f"Incorrect number of columns in activation function input: expected one, received '{received}'."
 
 
 class IncorrectActivationInputRowCountError(ApplicationError):
     def __init__(self: typing.Self, expected: int, received: int) -> None:
-        self.message = f"Incorrect number of rows in activation function input: expected '{expected}, received '{received}."
+        self.message = f"Incorrect number of rows in activation function input: expected '{expected}', received '{received}'."
 
 
 class IncorrectArgumentTypeError(ApplicationError):
@@ -126,12 +128,12 @@ class IncorrectLayerInputCountError(ApplicationError):
 
 class IncorrectPropagationInputColumnCountError(ApplicationError):
     def __init__(self: typing.Self, received: int) -> None:
-        self.message = f"Incorrect number of columns in propagation function input: expected one, received '{received}."
+        self.message = f"Incorrect number of columns in propagation function input: expected one, received '{received}'."
 
 
 class IncorrectPropagationInputRowCountError(ApplicationError):
     def __init__(self: typing.Self, expected: int, received: int) -> None:
-        self.message = f"Incorrect number of rows in propagation function input: expected '{expected}, received '{received}."
+        self.message = f"Incorrect number of rows in propagation function input: expected '{expected}', received '{received}'."
 
 
 class IncorrectSerializedBiasDataColumnCountError(ApplicationError):
@@ -284,25 +286,23 @@ class InvalidProgressValueError(LibraryError):
 class LabelMappingsFileCorrectionError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
         self.message = (
-            f"Failed to correct label mappings file: '{str(error) or 'No message provided.'}'"
+            f"Failed to correct label mappings file: {str(error) or 'No message provided.'}"
         )
 
 
 class LabelMappingsFileReadError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = (
-            f"Failed to read label mappings file: '{str(error) or 'No message provided.'}'"
-        )
+        self.message = f"Failed to read label mappings file: {str(error) or 'No message provided.'}"
 
 
 class LabelsFileCorrectionError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to correct labels file: '{str(error) or 'No message provided.'}'"
+        self.message = f"Failed to correct labels file: {str(error) or 'No message provided.'}"
 
 
 class LabelsFileReadError(ApplicationError):
     def __init__(self: typing.Self, error: Exception) -> None:
-        self.message = f"Failed to read labels file: '{str(error) or 'No message provided.'}'"
+        self.message = f"Failed to read labels file: {str(error) or 'No message provided.'}"
 
 
 class MagicNumberValidationError(ApplicationError):
