@@ -9,6 +9,11 @@ jobs:
             - uses: astral-sh/setup-uv@v6
               with:
                   enable-cache: false
+            - uses: pnpm/action-setup@v4
+              with:
+                  standalone: true
+                  version: latest
+            - run: pnpm dlx prettier . --check
             - run: uv tool install ruff --verbose
             - run: ruff format --check --verbose
     check-style:
